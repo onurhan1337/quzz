@@ -84,7 +84,15 @@ export function prettyFormatter(entry: LogEntry): string {
   if (entry.metadata) {
     if (entry.metadata.duration !== undefined) {
       const durationColor = entry.metadata.duration > 1000 ? colors.red : entry.metadata.duration > 500 ? colors.yellow : colors.green
-      output += ` ${colors.dim}(${durationColor}${entry.metadata.duration.toFixed(2)}ms${colors.dim})${colors.reset}`
+
+      if (entry.metadata.wallClockTime !== undefined && entry.metadata.waitTime !== undefined) {
+        const wallColor = entry.metadata.wallClockTime > 1000 ? colors.red : entry.metadata.wallClockTime > 500 ? colors.yellow : colors.green
+        output += ` ${colors.dim}(${durationColor}${entry.metadata.duration.toFixed(2)}ms compute${colors.dim}, `
+        output += `${wallColor}${entry.metadata.wallClockTime.toFixed(2)}ms total${colors.dim}, `
+        output += `${colors.gray}${entry.metadata.waitTime.toFixed(2)}ms wait${colors.dim})${colors.reset}`
+      } else {
+        output += ` ${colors.dim}(${durationColor}${entry.metadata.duration.toFixed(2)}ms${colors.dim})${colors.reset}`
+      }
     }
 
     if (entry.metadata.parentTrace) {
@@ -138,7 +146,11 @@ export function compactFormatter(entry: LogEntry): string {
   ]
 
   if (entry.metadata?.duration) {
-    parts.push(`${entry.metadata.duration.toFixed(2)}ms`)
+    if (entry.metadata.wallClockTime !== undefined) {
+      parts.push(`${entry.metadata.duration.toFixed(2)}ms compute | ${entry.metadata.wallClockTime.toFixed(2)}ms total`)
+    } else {
+      parts.push(`${entry.metadata.duration.toFixed(2)}ms`)
+    }
   }
 
   if (entry.error) {

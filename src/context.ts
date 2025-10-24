@@ -1,4 +1,6 @@
 import type { TraceMetadata } from './types'
+import { TraceCollector } from './visualizer/trace-collector'
+import { ConfigManager } from './config'
 
 interface RequestContext {
   traceStack: string[]
@@ -96,6 +98,16 @@ class TraceContext {
     const context = this.getContext()
     context.traceMap.set(metadata.traceId, metadata)
     context.traceStack.push(metadata.traceId)
+
+    // Add to trace collector if visualization is enabled
+    const config = ConfigManager.getInstance().getConfig()
+    if (config.visualizer?.enabled) {
+      const collector = TraceCollector.getInstance()
+      if (!collector.getSession()) {
+        collector.initialize(config.visualizer?.output, true)
+      }
+      collector.addTrace(metadata)
+    }
   }
 
   /**
@@ -145,6 +157,12 @@ class TraceContext {
     const existing = context.traceMap.get(traceId)
     if (existing) {
       context.traceMap.set(traceId, { ...existing, ...updates })
+
+      // Update in trace collector if visualization is enabled
+      const config = ConfigManager.getInstance().getConfig()
+      if (config.visualizer?.enabled) {
+        TraceCollector.getInstance().updateTrace(traceId, updates)
+      }
     }
   }
 
@@ -184,6 +202,32 @@ class TraceContext {
       }, fn)
     }
     return fn()
+  }
+
+  /**
+   * Export trace tree for visualization
+   */
+  exportTraceTree(): any {
+    const config = ConfigManager.getInstance().getConfig()
+    if (!config.visualizer?.enabled) {
+      return null
+    }
+
+    const collector = TraceCollector.getInstance()
+    return collector.getSession()
+  }
+
+  /**
+   * Save collected traces to file
+   */
+  async saveTraces(filePath?: string): Promise<void> {
+    const config = ConfigManager.getInstance().getConfig()
+    if (!config.visualizer?.enabled) {
+      throw new Error('Visualization is not enabled. Set visualizer.enabled to true in configuration.')
+    }
+
+    const collector = TraceCollector.getInstance()
+    await collector.save(filePath)
   }
 }
 
