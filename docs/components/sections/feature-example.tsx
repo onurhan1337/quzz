@@ -18,7 +18,7 @@ export function FeatureExample({
 }: FeatureExampleProps) {
   return (
     <section className="py-24 sm:py-[90px]">
-      <div className="max-w-[1080px] mx-auto px-4">
+      <div className="max-w-[900px] mx-auto px-4">
         <div
           className={`grid lg:grid-cols-2 gap-12 items-center ${
             reverse ? "lg:flex-row-reverse" : ""

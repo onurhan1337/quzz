@@ -1,28 +1,57 @@
-import { Button } from "@/components/ui"
-import Link from "next/link"
+"use client"
+
+import { Button } from "@/components/ui";
+import Link from "next/link";
+import { motion } from "framer-motion";
 
 export function Hero() {
   return (
-    <section className="py-24 sm:py-[90px]">
-      <div className="max-w-[1080px] mx-auto px-4">
-        <div className="max-w-[780px] mx-auto text-center">
-          <h1 className="text-5xl font-bold tracking-tight mb-6">
+    <section className="relative py-24 sm:py-[90px] overflow-hidden">
+      {/* Gradient background effects */}
+      <div className="absolute inset-0 bg-gradient-to-b from-primary/10 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="max-w-[900px] mx-auto px-4 relative">
+        <div className="max-w-[680px] mx-auto text-center">
+          <motion.h1
+            className="text-5xl font-semibold tracking-tight mb-6 bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
             Minimal DX tool for debugging React Server Components
-          </h1>
-          <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-            Production-grade debugging and performance monitoring for Next.js App Router.
-            Wrap your components to get instant visibility into render times, props, and execution flow.
-          </p>
-          <div className="flex flex-wrap gap-3 justify-center">
+          </motion.h1>
+          <motion.p
+            className="text-lg text-muted-foreground mb-8 leading-relaxed"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >
+            Production-grade debugging and performance monitoring for Next.js
+            App Router. Wrap your components to get instant visibility into
+            render times, props, and execution flow.
+          </motion.p>
+          <motion.div
+            className="flex flex-wrap gap-3 justify-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
             <Link href="#get-started">
               <Button size="lg">Get Started</Button>
             </Link>
-            <Link href="https://github.com/yourusername/quzz" target="_blank" rel="noopener">
-              <Button variant="outline" size="lg">Star on GitHub</Button>
+            <Link
+              href="https://github.com/onurhan1337/quzz"
+              target="_blank"
+              rel="noopener"
+            >
+              <Button variant="outline" size="lg">
+                Star on GitHub
+              </Button>
             </Link>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>
-  )
+  );
 }
