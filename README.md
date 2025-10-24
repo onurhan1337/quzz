@@ -34,17 +34,18 @@ npm install quzz
 Wrap any React Server Component with `withRSCTrace`:
 
 ```tsx
-import { withRSCTrace } from 'quzz'
+import { withRSCTrace } from "quzz";
 
 async function UserProfile({ userId }: { userId: string }) {
-  const user = await fetchUser(userId)
-  return <div>{user.name}</div>
+  const user = await fetchUser(userId);
+  return <div>{user.name}</div>;
 }
 
-export default withRSCTrace(UserProfile)
+export default withRSCTrace(UserProfile);
 ```
 
 **Output in your terminal:**
+
 ```
 ℹ️ [quzz] UserProfile rendered in 142ms
 Props: { userId: "user_123" }
@@ -57,16 +58,16 @@ Set global options in your root layout:
 
 ```tsx
 // app/layout.tsx
-import { configure } from 'quzz'
+import { configure } from "quzz";
 
-if (process.env.NODE_ENV === 'development') {
+if (process.env.NODE_ENV === "development") {
   configure({
-    logLevel: 'info',
+    logLevel: "info",
     performance: {
       enabled: true,
       warnThreshold: 500, // Warn if render takes > 500ms
-    }
-  })
+    },
+  });
 }
 ```
 
@@ -77,23 +78,24 @@ if (process.env.NODE_ENV === 'development') {
 Monitor components that might be slow and get warnings when they exceed a threshold:
 
 ```tsx
-import { withRSCTrace } from 'quzz'
+import { withRSCTrace } from "quzz";
 
 const DataTable = withRSCTrace(
   async function DataTable({ filters }) {
-    const data = await db.query(filters)
-    return <Table data={data} />
+    const data = await db.query(filters);
+    return <Table data={data} />;
   },
   {
-    componentName: 'DataTable',
-    performance: { warnThreshold: 200 } // Warn if > 200ms
+    componentName: "DataTable",
+    performance: { warnThreshold: 200 }, // Warn if > 200ms
   }
-)
+);
 
-export default DataTable
+export default DataTable;
 ```
 
 **Output when slow:**
+
 ```
 ⚠️  [DataTable] Slow render detected: 523ms
 Props: { filters: { status: "active", limit: 100 } }
@@ -107,19 +109,20 @@ Get detailed error information with full context:
 ```tsx
 const PaymentProcessor = withRSCTrace(
   async function PaymentProcessor({ orderId }) {
-    const payment = await processPayment(orderId)
-    return <PaymentStatus {...payment} />
+    const payment = await processPayment(orderId);
+    return <PaymentStatus {...payment} />;
   },
   {
-    componentName: 'PaymentProcessor',
-    logLevel: 'error'
+    componentName: "PaymentProcessor",
+    logLevel: "error",
   }
-)
+);
 
-export default PaymentProcessor
+export default PaymentProcessor;
 ```
 
 **Output on error:**
+
 ```
 ❌ [PaymentProcessor] Error: Payment processing failed
 Props: { orderId: "order_123" }
@@ -135,21 +138,22 @@ Track performance across your entire application:
 
 ```tsx
 // app/api/metrics/route.ts
-import { getPerformanceSummary } from 'quzz'
+import { getPerformanceSummary } from "quzz";
 
 export async function GET() {
-  const summary = getPerformanceSummary()
+  const summary = getPerformanceSummary();
 
   return Response.json({
     totalRenders: summary.totalRenders,
     avgDuration: summary.avgDuration,
     slowest: summary.slowest,
-    errors: summary.totalErrors
-  })
+    errors: summary.totalErrors,
+  });
 }
 ```
 
 **Example response:**
+
 ```json
 {
   "totalRenders": 1247,
@@ -166,27 +170,27 @@ export async function GET() {
 ```typescript
 withRSCTrace(Component, {
   // Naming
-  componentName: 'CustomName',     // Override display name
-  tags: ['auth', 'critical'],      // Add tags for filtering
+  componentName: "CustomName", // Override display name
+  tags: ["auth", "critical"], // Add tags for filtering
 
   // Logging
-  logLevel: 'debug',               // Override global level
-  logProps: true,                  // Log sanitized props
+  logLevel: "debug", // Override global level
+  logProps: true, // Log sanitized props
 
   // Performance
   performance: {
     enabled: true,
-    warnThreshold: 1000,           // ms
-    trackMemory: true              // Node.js only
+    warnThreshold: 1000, // ms
+    trackMemory: true, // Node.js only
   },
 
   // Features
   disable: {
-    props: false,                  // Skip prop logging
-    timing: false,                 // Skip performance tracking
-    errors: false                  // Skip error logging
-  }
-})
+    props: false, // Skip prop logging
+    timing: false, // Skip performance tracking
+    errors: false, // Skip error logging
+  },
+});
 ```
 
 ### Plugin System
@@ -194,7 +198,7 @@ withRSCTrace(Component, {
 Create custom plugins for integrations:
 
 ```typescript
-import { configure } from 'quzz'
+import { configure } from "quzz";
 
 // Sentry Integration
 const sentryPlugin = {
@@ -204,29 +208,29 @@ const sentryPlugin = {
         component: metadata.componentName,
         renderDuration: metadata.duration,
       },
-      extra: { props: metadata.props }
-    })
-  }
-}
+      extra: { props: metadata.props },
+    });
+  },
+};
 
 // Performance Budget Plugin
 const budgetPlugin = {
   onTraceEnd: async (metadata) => {
     if (metadata.duration > 1000) {
-      await notifySlack(`🚨 ${metadata.componentName} exceeded 1s render time`)
+      await notifySlack(`🚨 ${metadata.componentName} exceeded 1s render time`);
     }
-  }
-}
+  },
+};
 
 configure({
-  plugins: [sentryPlugin, budgetPlugin]
-})
+  plugins: [sentryPlugin, budgetPlugin],
+});
 ```
 
 ### Custom Output Formats
 
 ```typescript
-import { configure } from 'quzz'
+import { configure } from "quzz";
 
 configure({
   formatter: (entry) => ({
@@ -236,9 +240,9 @@ configure({
     message: entry.message,
     // Custom fields
     traceId: entry.metadata?.traceId,
-    userId: entry.metadata?.props?.userId
-  })
-})
+    userId: entry.metadata?.props?.userId,
+  }),
+});
 ```
 
 ## Troubleshooting
@@ -248,22 +252,25 @@ configure({
 #### 1. "I don't see any logs in development"
 
 **Solution**: Check that `NODE_ENV` is set to `development`:
+
 ```bash
 NODE_ENV=development next dev
 ```
 
 Or force enable for debugging:
+
 ```tsx
-configure({ forceEnable: true })
+configure({ forceEnable: true });
 ```
 
 #### 2. "My sensitive data is being logged"
 
 **Solution**: Add custom sensitive keys:
+
 ```tsx
 configure({
-  sensitiveKeys: ['creditCard', 'ssn', 'apiSecret']
-})
+  sensitiveKeys: ["creditCard", "ssn", "apiSecret"],
+});
 ```
 
 Default sensitive keys already include: password, token, secret, key, api_key, apikey, auth, credential, private, ssn, pin, passcode, hash, salt, signature, bearer, oauth, jwt, session, cookie, csrf, code
@@ -271,25 +278,27 @@ Default sensitive keys already include: password, token, secret, key, api_key, a
 #### 3. "Performance metrics are accumulating memory"
 
 **Solution**: quzz automatically cleans up old metrics, but you can tune it:
+
 ```tsx
-import { clearMetrics } from 'quzz'
+import { clearMetrics } from "quzz";
 
 // In a cleanup job or interval
 setInterval(() => {
-  clearMetrics()
-}, 3600000) // Clear hourly
+  clearMetrics();
+}, 3600000); // Clear hourly
 ```
 
 #### 4. "Errors lose context when crossing to client components"
 
 **Solution**: quzz automatically serializes errors for the RSC boundary. For custom error types:
+
 ```tsx
 class CustomError extends Error {
   toJSON() {
     return {
       message: this.message,
-      customField: this.customField
-    }
+      customField: this.customField,
+    };
   }
 }
 ```
@@ -297,55 +306,60 @@ class CustomError extends Error {
 #### 5. "Logs are too verbose"
 
 **Solution**: Use component filtering:
+
 ```tsx
 configure({
   componentFilter: /^(Header|Footer|Nav)/, // Only trace these
-  logLevel: 'warn' // Only warnings and errors
-})
+  logLevel: "warn", // Only warnings and errors
+});
 ```
 
 #### 6. "How do I test with quzz enabled?"
 
 **Solution**: In your test setup:
+
 ```tsx
 // jest.setup.js or vitest.setup.js
-import { configure } from 'quzz'
+import { configure } from "quzz";
 
 configure({
-  logLevel: 'silent', // Disable logs in tests
-  forceEnable: false
-})
+  logLevel: "silent", // Disable logs in tests
+  forceEnable: false,
+});
 ```
 
 ### Performance Tips
 
 1. **Use Component Filtering**: Don't trace every component
+
    ```tsx
    configure({
-     componentFilter: /^Critical/ // Only components starting with "Critical"
-   })
+     componentFilter: /^Critical/, // Only components starting with "Critical"
+   });
    ```
 
 2. **Disable Prop Logging for Large Objects**:
+
    ```tsx
    withRSCTrace(Component, {
-     logProps: false // Skip if props are huge
-   })
+     logProps: false, // Skip if props are huge
+   });
    ```
 
 3. **Adjust Sanitization Depth**:
+
    ```tsx
    configure({
      maxPropDepth: 1, // Shallow sanitization for performance
-     maxStringLength: 100 // Shorter strings
-   })
+     maxStringLength: 100, // Shorter strings
+   });
    ```
 
 4. **Use Throttling for High-Frequency Components**:
    ```tsx
    configure({
-     throttleMs: 1000 // Max 1 log per second per component
-   })
+     throttleMs: 1000, // Max 1 log per second per component
+   });
    ```
 
 ## API Reference
@@ -353,29 +367,37 @@ configure({
 ### Main Functions
 
 #### `withRSCTrace(Component, options?)`
+
 Wraps a React Server Component with tracing capabilities.
 
 #### `configure(config)`
+
 Sets global configuration for all traced components.
 
 #### `getConfig()`
+
 Returns current global configuration.
 
 #### `resetConfig()`
+
 Resets configuration to defaults.
 
 ### Performance Functions
 
 #### `getMetrics(componentName?)`
+
 Get performance metrics for a specific component or all components.
 
 #### `getPerformanceSummary()`
+
 Get aggregated performance summary across all components.
 
 #### `exportMetrics()`
+
 Export all metrics as JSON string.
 
 #### `clearMetrics()`
+
 Clear all collected performance metrics.
 
 ## Architecture
@@ -392,11 +414,13 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed design documentation.
 ## Performance Impact
 
 In development (with default settings):
+
 - HOC wrapper overhead: ~50μs per component
 - Prop sanitization: ~200μs (10 props, depth 3)
 - Performance tracking: ~10μs per render
 
 In production:
+
 - **Complete no-op**: 0μs (unless forceEnabled)
 
 ## Contributing
@@ -405,7 +429,7 @@ Contributions are welcome! Please see the [Contributing Guide](./CONTRIBUTING.md
 
 ## License
 
-MIT © 2024 quzz contributors
+MIT © 2025 quzz contributors
 
 ## Issues
 
