@@ -19,6 +19,11 @@ const DEFAULT_CONFIG: Required<Omit<QuzzConfig, 'formatter' | 'transports' | 'pl
   contextTracking: true,
   includeSourceLocation: false,
   throttleMs: 0,
+  trackTotalLatency: false,
+  visualizer: {
+    enabled: false,
+    output: './traces.json',
+  },
 }
 
 /**
@@ -52,6 +57,10 @@ class ConfigManager {
       performance: {
         ...DEFAULT_CONFIG.performance,
         ...config.performance,
+      },
+      visualizer: {
+        ...DEFAULT_CONFIG.visualizer,
+        ...config.visualizer,
       },
     }
   }
@@ -126,6 +135,10 @@ class ConfigManager {
         ...this.config.performance,
         ...componentOptions.performance,
       },
+      visualizer: {
+        ...DEFAULT_CONFIG.visualizer,
+        ...(this.config.visualizer || {}),
+      },
     }
   }
 
@@ -140,6 +153,17 @@ class ConfigManager {
    * Check if tracing is enabled based on environment and config
    */
   isEnabled(options?: RSCTraceOptions): boolean {
+    // Never enable in production unless explicitly forced
+    if (process.env.NODE_ENV === 'production') {
+      const forceEnable = options?.forceEnable ?? this.config.forceEnable
+      if (!forceEnable) return false
+    }
+
+    // Check for explicit disable via environment variable
+    if (process.env.QUZZ_DISABLE === 'true') {
+      return false
+    }
+
     const forceEnable = options?.forceEnable ?? this.config.forceEnable
     if (forceEnable) return true
 
