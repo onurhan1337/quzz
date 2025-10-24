@@ -1,12 +1,14 @@
-import { CodeBlock } from "@/components/code-block"
-import { Separator } from "@/components/ui"
+import { CodeBlock } from "@/components/code-block";
+import { Separator } from "@/components/ui";
 
 interface FeatureExampleProps {
-  title: string
-  description: string
-  codeExample: string
-  language?: string
-  reverse?: boolean
+  title: string;
+  description: string;
+  codeExample: string;
+  language?: string;
+  reverse?: boolean;
+  lightTheme?: string;
+  darkTheme?: string;
 }
 
 export function FeatureExample({
@@ -15,10 +17,12 @@ export function FeatureExample({
   codeExample,
   language = "typescript",
   reverse = false,
+  lightTheme = "vesper",
+  darkTheme = "github-dark",
 }: FeatureExampleProps) {
   return (
     <section className="py-24 sm:py-[90px]">
-      <div className="max-w-[900px] mx-auto px-4">
+      <div className="max-w-6xl mx-auto px-4">
         <div
           className={`grid lg:grid-cols-2 gap-12 items-center ${
             reverse ? "lg:flex-row-reverse" : ""
@@ -31,12 +35,17 @@ export function FeatureExample({
             </p>
           </div>
           <div className={reverse ? "lg:order-1" : ""}>
-            <CodeBlock code={codeExample} language={language} />
+            <CodeBlock
+              code={codeExample}
+              language={language}
+              lightTheme={lightTheme}
+              darkTheme={darkTheme}
+            />
           </div>
         </div>
       </div>
     </section>
-  )
+  );
 }
 
 export function FeatureExampleWithSeparator(props: FeatureExampleProps) {
@@ -45,5 +54,5 @@ export function FeatureExampleWithSeparator(props: FeatureExampleProps) {
       <FeatureExample {...props} />
       <Separator />
     </>
-  )
+  );
 }

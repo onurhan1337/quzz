@@ -1,5 +1,5 @@
-import { Separator } from "@/components/ui"
-import Link from "next/link"
+import { Separator } from "@/components/ui";
+import Link from "next/link";
 
 export function Footer() {
   return (
@@ -12,7 +12,7 @@ export function Footer() {
               Built for Next.js and React Server Components
             </p>
             <Link
-              href="https://github.com/yourusername/quzz"
+              href="https://github.com/onurhan1337/quzz"
               target="_blank"
               rel="noopener"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -23,5 +23,5 @@ export function Footer() {
         </div>
       </footer>
     </>
-  )
+  );
 }

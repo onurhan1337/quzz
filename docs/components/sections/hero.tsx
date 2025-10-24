@@ -1,8 +1,9 @@
-"use client"
+"use client";
 
 import { Button } from "@/components/ui";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { GithubIcon } from "lucide-react";
 
 export function Hero() {
   return (
@@ -14,7 +15,7 @@ export function Hero() {
       <div className="max-w-[900px] mx-auto px-4 relative">
         <div className="max-w-[680px] mx-auto text-center">
           <motion.h1
-            className="text-5xl font-semibold tracking-tight mb-6 bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text"
+            className="text-3xl md:text-4xl font-semibold tracking-tight mb-6 bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
@@ -22,7 +23,7 @@ export function Hero() {
             Minimal DX tool for debugging React Server Components
           </motion.h1>
           <motion.p
-            className="text-lg text-muted-foreground mb-8 leading-relaxed"
+            className="text-base text-muted-foreground mb-8 leading-relaxed"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
@@ -38,15 +39,17 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <Link href="#get-started">
-              <Button size="lg">Get Started</Button>
+              <Button size="lg" className="rounded-none">
+                Get Started
+              </Button>
             </Link>
             <Link
               href="https://github.com/onurhan1337/quzz"
               target="_blank"
               rel="noopener"
             >
-              <Button variant="outline" size="lg">
-                Star on GitHub
+              <Button variant="outline" size="lg" className="rounded-none">
+                <GithubIcon className="w-4 h-4 mr-2" /> GitHub
               </Button>
             </Link>
           </motion.div>

@@ -1,8 +1,15 @@
-import { Hero, FeatureExample, Footer } from "@/components/sections"
-import { Separator } from "@/components/ui"
-import { InteractiveDemo } from "@/components/interactive-demo"
-import { ConfigDemo } from "@/components/config-demo"
-import { Zap, AlertCircle, Network, Shield, Code2, Settings } from "lucide-react"
+import { Hero, FeatureExample, Footer } from "@/components/sections";
+import { Separator } from "@/components/ui";
+import { InteractiveDemo } from "@/components/interactive-demo";
+import { ConfigDemo } from "@/components/config-demo";
+import {
+  Zap,
+  AlertCircle,
+  Network,
+  Shield,
+  Code2,
+  Settings,
+} from "lucide-react";
 
 export default function Home() {
   return (
@@ -14,6 +21,9 @@ export default function Home() {
       <FeatureExample
         title="Wrap and trace any Server Component"
         description="Get instant visibility into your React Server Components with a simple HOC wrapper. Track performance, props, and execution flow without changing your component logic."
+        language="typescript"
+        lightTheme="github-light"
+        darkTheme="vesper"
         codeExample={`import { withRSCTrace } from 'quzz'
 
 export const UserProfile = withRSCTrace(
@@ -49,7 +59,8 @@ export const UserProfile = withRSCTrace(
               See it in action
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground">
-              Watch how quzz logs component execution in real-time with beautiful terminal output.
+              Watch how quzz logs component execution in real-time with
+              beautiful terminal output.
             </p>
           </div>
 
@@ -68,7 +79,8 @@ export const UserProfile = withRSCTrace(
               Configure your workflow
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground">
-              Customize quzz to match your debugging needs with flexible configuration options.
+              Customize quzz to match your debugging needs with flexible
+              configuration options.
             </p>
           </div>
 
@@ -88,7 +100,8 @@ export const UserProfile = withRSCTrace(
               Production-ready features
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground">
-              Everything you need to debug and monitor React Server Components in development and production.
+              Everything you need to debug and monitor React Server Components
+              in development and production.
             </p>
           </div>
 
@@ -101,7 +114,8 @@ export const UserProfile = withRSCTrace(
                 </div>
                 <h3 className="text-xl font-bold mb-2">Performance tracking</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Automatic monitoring of component render times with configurable warning thresholds and memory tracking.
+                  Automatic monitoring of component render times with
+                  configurable warning thresholds and memory tracking.
                 </p>
               </div>
             </div>
@@ -114,7 +128,8 @@ export const UserProfile = withRSCTrace(
                 </div>
                 <h3 className="text-xl font-bold mb-2">Error context</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Enhanced error traces capture full context, props, and stack traces for faster debugging.
+                  Enhanced error traces capture full context, props, and stack
+                  traces for faster debugging.
                 </p>
               </div>
             </div>
@@ -127,7 +142,8 @@ export const UserProfile = withRSCTrace(
                 </div>
                 <h3 className="text-xl font-bold mb-2">Component hierarchy</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Visualize parent-child relationships and trace execution flow through nested components.
+                  Visualize parent-child relationships and trace execution flow
+                  through nested components.
                 </p>
               </div>
             </div>
@@ -140,7 +156,8 @@ export const UserProfile = withRSCTrace(
                 </div>
                 <h3 className="text-xl font-bold mb-2">Zero overhead</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Conditionally enable in development only. No performance impact in production builds.
+                  Conditionally enable in development only. No performance
+                  impact in production builds.
                 </p>
               </div>
             </div>
@@ -153,7 +170,8 @@ export const UserProfile = withRSCTrace(
                 </div>
                 <h3 className="text-xl font-bold mb-2">Type-safe</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Built with TypeScript for full type safety and excellent IDE autocomplete support.
+                  Built with TypeScript for full type safety and excellent IDE
+                  autocomplete support.
                 </p>
               </div>
             </div>
@@ -164,9 +182,12 @@ export const UserProfile = withRSCTrace(
                 <div className="mb-4 w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Settings className="w-6 h-6 text-orange-500" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">Flexible configuration</h3>
+                <h3 className="text-xl font-bold mb-2">
+                  Flexible configuration
+                </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Customize log levels, output formats, and performance thresholds per component or globally.
+                  Customize log levels, output formats, and performance
+                  thresholds per component or globally.
                 </p>
               </div>
             </div>
@@ -176,79 +197,78 @@ export const UserProfile = withRSCTrace(
 
       <Separator />
 
-      <section id="get-started" className="relative py-24 sm:py-[90px] overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-t from-primary/10 via-transparent to-transparent pointer-events-none" />
-
-        <div className="max-w-[900px] mx-auto px-4 relative">
-          <div className="max-w-[680px] mx-auto text-center mb-16">
-            <h2 className="text-4xl font-bold tracking-tight mb-4">
+      <section
+        id="get-started"
+        className="relative py-20 sm:py-24 overflow-hidden"
+      >
+        <div className="max-w-4xl mx-auto px-4 relative">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold tracking-tight mb-3">
               Get started in seconds
             </h2>
-            <p className="text-base leading-relaxed text-muted-foreground">
+            <p className="text-muted-foreground">
               Install quzz and wrap your first component in under a minute.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="group relative rounded-xl border border-border bg-card p-6 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50 transition-all duration-300">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
-              <div className="relative">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                    1
-                  </div>
-                  <div className="text-lg font-bold">Install</div>
+          <div className="space-y-8">
+            {/* Step 1 */}
+            <div className="flex items-start gap-6 p-6 rounded-lg border bg-card/50">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                1
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-semibold mb-3">Install quzz</h3>
+                <div className="bg-muted rounded-md p-3 font-mono text-sm mb-3">
+                  <code className="text-foreground">npm install quzz</code>
                 </div>
-                <div className="rounded-lg bg-[#0d1117] border border-gray-800 p-4 mb-4 font-mono text-sm">
-                  <code className="text-gray-300">npm install quzz</code>
-                </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <p className="text-sm text-muted-foreground">
                   Available on npm with zero dependencies
                 </p>
               </div>
             </div>
 
-            <div className="group relative rounded-xl border border-border bg-card p-6 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50 transition-all duration-300">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
-              <div className="relative">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                    2
-                  </div>
-                  <div className="text-lg font-bold">Wrap</div>
-                </div>
-                <div className="rounded-lg bg-[#0d1117] border border-gray-800 p-4 mb-4 font-mono text-sm">
-                  <code className="text-gray-300 block">
-                    <span className="text-[#ff7b72]">import</span> &#123; withRSCTrace &#125; <span className="text-[#ff7b72]">from</span> <span className="text-[#a5d6ff]">'quzz'</span>
+            {/* Step 2 */}
+            <div className="flex items-start gap-6 p-6 rounded-lg border bg-card/50">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                2
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-semibold mb-3">
+                  Wrap your component
+                </h3>
+                <div className="bg-muted rounded-md p-3 font-mono text-sm mb-3 overflow-x-auto">
+                  <code className="text-foreground block whitespace-nowrap">
+                    <span className="text-[#d73a49]">import</span> &#123;
+                    withRSCTrace &#125;{" "}
+                    <span className="text-[#d73a49]">from</span>{" "}
+                    <span className="text-[#032f62]">'quzz'</span>
                     <br />
-                    <br />
-                    <span className="text-[#ff7b72]">export default</span> withRSCTrace(MyComponent)
+                    <span className="text-[#d73a49]">export default</span>{" "}
+                    withRSCTrace(MyComponent)
                   </code>
                 </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <p className="text-sm text-muted-foreground">
                   Use the HOC to enable debugging
                 </p>
               </div>
             </div>
 
-            <div className="group relative rounded-xl border border-border bg-card p-6 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50 transition-all duration-300">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
-              <div className="relative">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                    3
-                  </div>
-                  <div className="text-lg font-bold">Run</div>
-                </div>
-                <div className="rounded-lg bg-[#0d1117] border border-gray-800 p-4 mb-4 font-mono text-sm">
-                  <code className="text-gray-300 block">
+            {/* Step 3 */}
+            <div className="flex items-start gap-6 p-6 rounded-lg border bg-card/50">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                3
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-semibold mb-3">Run and see logs</h3>
+                <div className="bg-muted rounded-md p-3 font-mono text-sm mb-3">
+                  <code className="text-foreground block">
                     npm run dev
-                    <br />
                     <br />
                     ℹ️ [quzz] MyComponent (42ms)
                   </code>
                 </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <p className="text-sm text-muted-foreground">
                   See logs instantly in your dev server
                 </p>
               </div>
@@ -259,5 +279,5 @@ export const UserProfile = withRSCTrace(
 
       <Footer />
     </main>
-  )
+  );
 }
