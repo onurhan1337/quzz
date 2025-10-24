@@ -80,9 +80,9 @@ export function withRSCTrace<P extends object>(
 ): ComponentType<P> {
   const configManager = ConfigManager.getInstance()
 
-  // Check if tracing is enabled
-  // This also checks QUZZ_DISABLE env variable internally
-  if (!configManager.isEnabled(componentOptions)) {
+  const isEnabled = configManager.isEnabled(componentOptions)
+
+  if (!isEnabled) {
     return Component
   }
 

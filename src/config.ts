@@ -1,11 +1,16 @@
-import type { QuzzConfig, RSCTraceOptions } from './types'
+import type { QuzzConfig, RSCTraceOptions } from "./types";
 
 /**
  * Default configuration
  */
-const DEFAULT_CONFIG: Required<Omit<QuzzConfig, 'formatter' | 'transports' | 'plugins' | 'componentFilter' | 'sensitiveKeys'>> = {
-  logLevel: 'error',
-  outputFormat: 'pretty',
+const DEFAULT_CONFIG: Required<
+  Omit<
+    QuzzConfig,
+    "formatter" | "transports" | "plugins" | "componentFilter" | "sensitiveKeys"
+  >
+> = {
+  logLevel: "error",
+  outputFormat: "pretty",
   performance: {
     enabled: false,
     warnThreshold: 1000,
@@ -22,26 +27,26 @@ const DEFAULT_CONFIG: Required<Omit<QuzzConfig, 'formatter' | 'transports' | 'pl
   trackTotalLatency: false,
   visualizer: {
     enabled: false,
-    output: './traces.json',
+    output: "./traces.json",
   },
-}
+};
 
 /**
  * Singleton configuration manager
  */
 class ConfigManager {
-  private static instance: ConfigManager
-  private config: QuzzConfig
+  private static instance: ConfigManager;
+  private config: QuzzConfig;
 
   private constructor() {
-    this.config = { ...DEFAULT_CONFIG }
+    this.config = { ...DEFAULT_CONFIG };
   }
 
   static getInstance(): ConfigManager {
     if (!ConfigManager.instance) {
-      ConfigManager.instance = new ConfigManager()
+      ConfigManager.instance = new ConfigManager();
     }
-    return ConfigManager.instance
+    return ConfigManager.instance;
   }
 
   /**
@@ -49,7 +54,7 @@ class ConfigManager {
    */
   configure(config: Partial<QuzzConfig>): void {
     // Validate configuration
-    this.validateConfig(config)
+    this.validateConfig(config);
 
     this.config = {
       ...this.config,
@@ -62,7 +67,7 @@ class ConfigManager {
         ...DEFAULT_CONFIG.visualizer,
         ...config.visualizer,
       },
-    }
+    };
   }
 
   /**
@@ -71,45 +76,63 @@ class ConfigManager {
   private validateConfig(config: Partial<QuzzConfig>): void {
     // Validate log level
     if (config.logLevel) {
-      const validLevels = ['silent', 'error', 'warn', 'info', 'debug', 'trace']
+      const validLevels = ["silent", "error", "warn", "info", "debug", "trace"];
       if (!validLevels.includes(config.logLevel)) {
-        console.warn(`[quzz] Invalid logLevel "${config.logLevel}". Valid options: ${validLevels.join(', ')}`)
+        console.warn(
+          `[quzz] Invalid logLevel "${
+            config.logLevel
+          }". Valid options: ${validLevels.join(", ")}`
+        );
       }
     }
 
     // Validate output format
     if (config.outputFormat) {
-      const validFormats = ['pretty', 'json', 'compact']
+      const validFormats = ["pretty", "json", "compact"];
       if (!validFormats.includes(config.outputFormat)) {
-        console.warn(`[quzz] Invalid outputFormat "${config.outputFormat}". Valid options: ${validFormats.join(', ')}`)
+        console.warn(
+          `[quzz] Invalid outputFormat "${
+            config.outputFormat
+          }". Valid options: ${validFormats.join(", ")}`
+        );
       }
     }
 
     // Validate performance config
     if (config.performance) {
-      if (config.performance.warnThreshold !== undefined && config.performance.warnThreshold < 0) {
-        console.warn('[quzz] Performance warnThreshold must be positive')
+      if (
+        config.performance.warnThreshold !== undefined &&
+        config.performance.warnThreshold < 0
+      ) {
+        console.warn("[quzz] Performance warnThreshold must be positive");
       }
     }
 
     // Validate max depth
-    if (config.maxPropDepth !== undefined && (config.maxPropDepth < 0 || config.maxPropDepth > 10)) {
-      console.warn('[quzz] maxPropDepth should be between 0 and 10 for optimal performance')
+    if (
+      config.maxPropDepth !== undefined &&
+      (config.maxPropDepth < 0 || config.maxPropDepth > 10)
+    ) {
+      console.warn(
+        "[quzz] maxPropDepth should be between 0 and 10 for optimal performance"
+      );
     }
 
     // Validate component filter
     if (config.componentFilter) {
       try {
         // Test regex is valid
-        'test'.match(config.componentFilter)
+        "test".match(config.componentFilter);
       } catch (e) {
-        console.error('[quzz] Invalid componentFilter regex:', e)
+        console.error("[quzz] Invalid componentFilter regex:", e);
       }
     }
 
     // Warn about production usage
-    if (config.forceEnable && process.env.NODE_ENV === 'production') {
-      console.warn('[quzz] Warning: Tracing is force-enabled in production. This may impact performance.')
+    if (config.forceEnable && process.env.NODE_ENV === "production") {
+      console.warn(
+        "[quzz] Warning: Tracing is force-enabled in production. This may impact performance."
+      );
     }
   }
 
@@ -117,15 +140,32 @@ class ConfigManager {
    * Get current global configuration
    */
   getConfig(): QuzzConfig {
-    return { ...this.config }
+    return { ...this.config };
   }
 
   /**
    * Merge component-level options with global config
    */
-  mergeOptions(componentOptions: RSCTraceOptions = {}): Required<
-    Omit<QuzzConfig, 'formatter' | 'transports' | 'plugins' | 'componentFilter' | 'sensitiveKeys'>
-  > & Pick<QuzzConfig, 'formatter' | 'transports' | 'plugins' | 'componentFilter' | 'sensitiveKeys'> {
+  mergeOptions(
+    componentOptions: RSCTraceOptions = {}
+  ): Required<
+    Omit<
+      QuzzConfig,
+      | "formatter"
+      | "transports"
+      | "plugins"
+      | "componentFilter"
+      | "sensitiveKeys"
+    >
+  > &
+    Pick<
+      QuzzConfig,
+      | "formatter"
+      | "transports"
+      | "plugins"
+      | "componentFilter"
+      | "sensitiveKeys"
+    > {
     return {
       ...DEFAULT_CONFIG,
       ...this.config,
@@ -139,35 +179,37 @@ class ConfigManager {
         ...DEFAULT_CONFIG.visualizer,
         ...(this.config.visualizer || {}),
       },
-    }
+    };
   }
 
   /**
    * Reset to default configuration
    */
   reset(): void {
-    this.config = { ...DEFAULT_CONFIG }
+    this.config = { ...DEFAULT_CONFIG };
   }
 
   /**
    * Check if tracing is enabled based on environment and config
    */
   isEnabled(options?: RSCTraceOptions): boolean {
-    // Never enable in production unless explicitly forced
-    if (process.env.NODE_ENV === 'production') {
-      const forceEnable = options?.forceEnable ?? this.config.forceEnable
-      if (!forceEnable) return false
+    if (process.env.QUZZ_DISABLE === "true") {
+      return false;
     }
 
-    // Check for explicit disable via environment variable
-    if (process.env.QUZZ_DISABLE === 'true') {
-      return false
+    const forceEnable = options?.forceEnable ?? this.config.forceEnable;
+    if (forceEnable) {
+      return true;
     }
 
-    const forceEnable = options?.forceEnable ?? this.config.forceEnable
-    if (forceEnable) return true
+    if (process.env.NODE_ENV === "production") {
+      return false;
+    }
 
-    return process.env.NODE_ENV === 'development'
+    return (
+      process.env.NODE_ENV === "development" ||
+      process.env.NODE_ENV === undefined
+    );
   }
 }
 
@@ -180,7 +222,7 @@ class ConfigManager {
  * ```
  */
 export function configure(config: Partial<QuzzConfig>): void {
-  ConfigManager.getInstance().configure(config)
+  ConfigManager.getInstance().configure(config);
 }
 
 /**
@@ -188,14 +230,14 @@ export function configure(config: Partial<QuzzConfig>): void {
  * @returns Complete configuration object
  */
 export function getConfig(): QuzzConfig {
-  return ConfigManager.getInstance().getConfig()
+  return ConfigManager.getInstance().getConfig();
 }
 
 /**
  * Reset configuration to defaults
  */
 export function resetConfig(): void {
-  ConfigManager.getInstance().reset()
+  ConfigManager.getInstance().reset();
 }
 
-export { ConfigManager }
+export { ConfigManager };
