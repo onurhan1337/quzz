@@ -1,4 +1,3 @@
-import { AsyncLocalStorage } from 'node:async_hooks'
 import type { TraceMetadata } from './types'
 
 interface RequestContext {
@@ -6,12 +5,33 @@ interface RequestContext {
   traceMap: Map<string, TraceMetadata>
 }
 
+type AsyncLocalStorageType<T> = {
+  new(): AsyncLocalStorageInstance<T>
+}
+
+type AsyncLocalStorageInstance<T> = {
+  getStore(): T | undefined
+  enterWith(store: T): void
+  run<R>(store: T, callback: () => R): R
+}
+
+let AsyncLocalStorageClass: AsyncLocalStorageType<RequestContext> | null = null
+
+if (typeof process !== 'undefined' && process.versions?.node) {
+  try {
+    const module = require('node:async_hooks')
+    AsyncLocalStorageClass = module.AsyncLocalStorage
+  } catch {
+    AsyncLocalStorageClass = null
+  }
+}
+
 /**
  * Trace context for tracking nested component hierarchies with request isolation
  */
 class TraceContext {
   private static instance: TraceContext
-  private asyncLocalStorage: AsyncLocalStorage<RequestContext>
+  private asyncLocalStorage: AsyncLocalStorageInstance<RequestContext> | null
 
   // Fallback for environments without AsyncLocalStorage
   private globalTraceStack: string[] = []
@@ -19,12 +39,15 @@ class TraceContext {
 
   private constructor() {
     // Initialize AsyncLocalStorage if available
-    try {
-      this.asyncLocalStorage = new AsyncLocalStorage()
-    } catch (e) {
-      // AsyncLocalStorage not available, will use global state
-      console.warn('[quzz] AsyncLocalStorage not available, using global trace context')
-      this.asyncLocalStorage = null as any
+    if (AsyncLocalStorageClass) {
+      try {
+        this.asyncLocalStorage = new AsyncLocalStorageClass()
+      } catch (e) {
+        console.warn('[quzz] AsyncLocalStorage initialization failed, using global trace context')
+        this.asyncLocalStorage = null
+      }
+    } else {
+      this.asyncLocalStorage = null
     }
   }
 
