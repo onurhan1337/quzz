@@ -1,6 +1,6 @@
 {
   "name": "quzz",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Minimal DX tool for debugging React Server Components in Next.js App Router",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

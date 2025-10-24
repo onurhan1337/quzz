@@ -2,6 +2,7 @@ import { Hero, FeatureExample, Footer } from "@/components/sections";
 import { Separator } from "@/components/ui";
 import { InteractiveDemo } from "@/components/interactive-demo";
 import { ConfigDemo } from "@/components/config-demo";
+import { QuzzDemo } from "@/components/quzz-demo";
 import {
   Zap,
   AlertCircle,
@@ -67,6 +68,45 @@ export const UserProfile = withRSCTrace(
           <InteractiveDemo />
         </div>
       </section>
+
+      <Separator />
+
+      <FeatureExample
+        title="Zero configuration, maximum flexibility"
+        description="Start with zero config - just wrap your component. When you need more control, customize everything from log levels to performance thresholds."
+        language="typescript"
+        lightTheme="github-light"
+        darkTheme="vesper"
+        codeExample={`// Zero config - just wrap and go
+export const SimpleComponent = withRSCTrace(MyComponent)
+
+// Or customize per component
+export const DetailedComponent = withRSCTrace(
+  async function UserDashboard({ userId }: Props) {
+    const data = await fetchData(userId)
+    return <Dashboard data={data} />
+  },
+  {
+    logLevel: 'debug',
+    logProps: true,
+    performance: {
+      enabled: true,
+      warnThreshold: 500,
+      trackMemory: true
+    }
+  }
+)
+
+// Or configure globally
+import { configure } from 'quzz'
+
+configure({
+  logLevel: 'info',
+  outputFormat: 'pretty',
+  performance: { enabled: true },
+  contextTracking: true
+})`}
+      />
 
       <Separator />
 
@@ -274,6 +314,23 @@ export const UserProfile = withRSCTrace(
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <Separator />
+
+      <section className="py-20 sm:py-24">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold tracking-tight mb-3">
+              See quzz in action
+            </h2>
+            <p className="text-muted-foreground">
+              Try the interactive demo to see quzz logging in real-time
+            </p>
+          </div>
+
+          <QuzzDemo />
         </div>
       </section>
 
