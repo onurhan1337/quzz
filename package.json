@@ -36,7 +36,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/onurhan1337/quzz.git"
   },
   "peerDependencies": {
     "next": ">=13.0.0",
