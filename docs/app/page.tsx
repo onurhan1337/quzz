@@ -3,6 +3,7 @@ import { Separator } from "@/components/ui";
 import { InteractiveDemo } from "@/components/interactive-demo";
 import { ConfigDemo } from "@/components/config-demo";
 import { QuzzDemo } from "@/components/quzz-demo";
+import { RSCBoundaryDemo } from "@/components/rsc-boundary-demo";
 import {
   Zap,
   AlertCircle,
@@ -125,6 +126,27 @@ configure({
           </div>
 
           <ConfigDemo />
+        </div>
+      </section>
+
+      <Separator />
+
+      <section className="relative py-24 sm:py-[90px] overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-bl from-purple-500/5 via-transparent to-blue-500/5 pointer-events-none" />
+
+        <div className="max-w-[900px] mx-auto px-4 relative">
+          <div className="max-w-[780px] mx-auto mb-12">
+            <h2 className="text-4xl font-bold tracking-tight mb-4">
+              RSCBoundary: Alternative Approach
+            </h2>
+            <p className="text-base leading-relaxed text-muted-foreground">
+              Use <code className="px-2 py-0.5 rounded bg-muted text-sm font-mono">&lt;RSCBoundary&gt;</code> for
+              fine-grained tracing without HOCs. Perfect for async components,
+              nested hierarchies, and tracking total latency.
+            </p>
+          </div>
+
+          <RSCBoundaryDemo />
         </div>
       </section>
 
