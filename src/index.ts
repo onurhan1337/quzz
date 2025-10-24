@@ -9,6 +9,7 @@ import { Logger } from './logger'
 // Re-export types and configuration
 export type {
   RSCTraceOptions,
+  RSCBoundaryProps,
   QuzzConfig,
   LogLevel,
   OutputFormat,
@@ -20,10 +21,15 @@ export type {
   LogFormatter,
   LogTransport,
   PerformanceConfig,
+  VisualizerConfig,
 } from './types'
 
 export { configure, getConfig, resetConfig } from './config'
 export { PerformanceMonitor } from './performance'
+export { TraceContext } from './context'
+export { RSCBoundary } from './boundary'
+export { TraceCollector } from './visualizer/trace-collector'
+export type { CollectedTrace, TraceSession } from './visualizer/trace-collector'
 
 /**
  * Get performance metrics for specific component or all components
@@ -75,6 +81,7 @@ export function withRSCTrace<P extends object>(
   const configManager = ConfigManager.getInstance()
 
   // Check if tracing is enabled
+  // This also checks QUZZ_DISABLE env variable internally
   if (!configManager.isEnabled(componentOptions)) {
     return Component
   }

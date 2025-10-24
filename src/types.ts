@@ -51,6 +51,22 @@ export interface PerformanceConfig {
 }
 
 /**
+ * Visualizer configuration for trace collection
+ */
+export interface VisualizerConfig {
+  /**
+   * Enable trace collection for visualization
+   * @default false
+   */
+  enabled?: boolean
+  /**
+   * Output file path for collected traces
+   * @default './traces.json'
+   */
+  output?: string
+}
+
+/**
  * Global configuration options for quzz
  */
 export interface QuzzConfig {
@@ -137,6 +153,17 @@ export interface QuzzConfig {
    * @default 0 (no throttling)
    */
   throttleMs?: number
+
+  /**
+   * Track total latency (wall clock time vs compute time)
+   * @default false
+   */
+  trackTotalLatency?: boolean
+
+  /**
+   * Visualizer configuration for trace collection
+   */
+  visualizer?: VisualizerConfig
 }
 
 /**
@@ -179,6 +206,8 @@ export interface TraceMetadata {
   renderStart: number
   renderEnd?: number
   duration?: number
+  wallClockTime?: number
+  waitTime?: number
   props?: Record<string, unknown>
   error?: SerializedError
   parentTrace?: string
@@ -213,3 +242,22 @@ export type WithRSCTrace = <P extends object>(
   Component: ComponentType<P>,
   options?: RSCTraceOptions
 ) => ComponentType<P>
+
+/**
+ * Props for the RSCBoundary component
+ */
+export interface RSCBoundaryProps extends RSCTraceOptions {
+  /**
+   * Required label for the boundary
+   */
+  label: string
+  /**
+   * Children to wrap and trace
+   */
+  children: React.ReactNode
+  /**
+   * Track total latency (wall clock time vs compute time)
+   * @default false
+   */
+  trackTotalLatency?: boolean
+}
