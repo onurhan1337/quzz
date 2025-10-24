@@ -1,39 +1,27 @@
 # quzz
 
-**Production-grade debugging and performance monitoring for React Server Components in Next.js**
-
-Zero-config by default, infinitely configurable when you need it. Built for modern Next.js development.
+Debugging tool for React Server Components in Next.js. Wrap your components to get visibility into render times, props, errors, and execution flow.
 
 [![npm version](https://badge.fury.io/js/quzz.svg)](https://www.npmjs.com/package/quzz)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Why quzz?
 
-Debugging React Server Components is hard. Traditional React DevTools don't work with RSCs. Console logs get lost in server output. Error boundaries lose context when errors cross the server-client boundary.
+React Server Components don't work with traditional debugging tools like React DevTools. Console logs get scattered in server output, and errors lose context when crossing the server-client boundary.
 
-**quzz** solves these problems with a lightweight, zero-config HOC that provides rich debugging information during development and completely disappears in production.
+quzz provides a simple HOC wrapper that gives you detailed logging during development and automatically disables itself in production.
 
 ## Features
 
-### Core DX Features
-- ⚡ **Zero Production Overhead**: Completely disabled in production (no runtime cost)
-- 🚀 **Zero Config**: Works out of the box with sensible defaults
-- 🔐 **Request Isolation**: Uses AsyncLocalStorage for proper concurrent request handling
-- 📘 **TypeScript First**: Full type safety with comprehensive type exports
-- 🧹 **Automatic Memory Management**: Self-cleaning to prevent memory leaks
-
-### Debugging & Monitoring
-- 📊 **Smart Error Tracking**: Enhanced error serialization that survives the RSC boundary
-- 🎨 **Beautiful Output**: Colorized terminal output with customizable formatters
-- 🔒 **Secure by Default**: Automatic sanitization of 22+ sensitive prop patterns
-- 📈 **Performance Insights**: Track render times with automatic threshold warnings
-- 🌳 **Component Hierarchy**: Track nested RSC relationships and render trees
-
-### Enterprise Ready
-- 🔌 **Plugin System**: Extensible architecture for custom integrations
-- 🚚 **Custom Transports**: Send telemetry to any logging service
-- 💾 **Memory Safe**: Automatic cleanup of stale metrics and traces
-- 🎯 **Selective Tracing**: Regex-based component filtering
+- Zero configuration required
+- Automatic performance tracking
+- Component render timing with configurable thresholds
+- Error tracking with full context
+- Props logging with automatic sensitive data redaction
+- Component hierarchy visualization
+- TypeScript support
+- Plugin system for custom integrations
+- Zero production overhead (completely disabled unless explicitly enabled)
 
 ## Installation
 
@@ -43,7 +31,7 @@ npm install quzz
 
 ## Quick Start
 
-### Basic Usage (Zero Config)
+Wrap any React Server Component with `withRSCTrace`:
 
 ```tsx
 import { withRSCTrace } from 'quzz'
@@ -56,14 +44,16 @@ async function UserProfile({ userId }: { userId: string }) {
 export default withRSCTrace(UserProfile)
 ```
 
-That's it! In development, you'll automatically get:
-- Component render timing
-- Error tracking with enhanced stack traces
-- Prop logging (with sensitive data redacted)
+**Output in your terminal:**
+```
+ℹ️ [quzz] UserProfile rendered in 142ms
+Props: { userId: "user_123" }
+Memory: 45.2 MB
+```
 
-### Global Configuration
+### Configuration
 
-Configure once in your root layout:
+Set global options in your root layout:
 
 ```tsx
 // app/layout.tsx
@@ -74,22 +64,24 @@ if (process.env.NODE_ENV === 'development') {
     logLevel: 'info',
     performance: {
       enabled: true,
-      warnThreshold: 500, // Warn on renders > 500ms
+      warnThreshold: 500, // Warn if render takes > 500ms
     }
   })
 }
 ```
 
-## Common Use Cases
+## Examples
 
-### 1. Debug Slow Components
+### Track Slow Components
+
+Monitor components that might be slow and get warnings when they exceed a threshold:
 
 ```tsx
 import { withRSCTrace } from 'quzz'
 
-const SlowComponent = withRSCTrace(
+const DataTable = withRSCTrace(
   async function DataTable({ filters }) {
-    const data = await complexQuery(filters) // This is slow
+    const data = await db.query(filters)
     return <Table data={data} />
   },
   {
@@ -97,68 +89,74 @@ const SlowComponent = withRSCTrace(
     performance: { warnThreshold: 200 } // Warn if > 200ms
   }
 )
+
+export default DataTable
 ```
 
-Output:
+**Output when slow:**
 ```
-⚠️  [DataTable] Slow render detected: 523.45ms
-   Props: { filters: { status: "active", limit: 100 } }
-   Threshold: 200ms
+⚠️  [DataTable] Slow render detected: 523ms
+Props: { filters: { status: "active", limit: 100 } }
+Threshold: 200ms
 ```
 
-### 2. Track Component Errors
+### Catch and Debug Errors
+
+Get detailed error information with full context:
 
 ```tsx
-const RiskyComponent = withRSCTrace(
+const PaymentProcessor = withRSCTrace(
   async function PaymentProcessor({ orderId }) {
-    const payment = await processPayment(orderId) // Might fail
+    const payment = await processPayment(orderId)
     return <PaymentStatus {...payment} />
   },
   {
     componentName: 'PaymentProcessor',
-    logLevel: 'error' // Only log errors
+    logLevel: 'error'
   }
 )
+
+export default PaymentProcessor
 ```
 
-Output on error:
+**Output on error:**
 ```
-❌ [PaymentProcessor] Rendering failed: Payment processing failed
-   Props: { orderId: "order_123" }
-   Stack:
-     at processPayment (app/payments/processor.ts:45:11)
-     at PaymentProcessor (app/components/Payment.tsx:12:20)
-   Duration before error: 234.56ms
+❌ [PaymentProcessor] Error: Payment processing failed
+Props: { orderId: "order_123" }
+Stack:
+  at processPayment (app/payments/processor.ts:45:11)
+  at PaymentProcessor (app/components/Payment.tsx:12:20)
+Duration before error: 234ms
 ```
 
-### 3. Monitor Performance Across All Components
+### Monitor Multiple Components
+
+Track performance across your entire application:
 
 ```tsx
-// In your monitoring dashboard or API route
-import { getPerformanceSummary, exportMetrics } from 'quzz'
+// app/api/metrics/route.ts
+import { getPerformanceSummary } from 'quzz'
 
 export async function GET() {
   const summary = getPerformanceSummary()
 
-  // Send to monitoring service
-  await sendToDatadog({
+  return Response.json({
     totalRenders: summary.totalRenders,
     avgDuration: summary.avgDuration,
-    errorRate: (summary.totalErrors / summary.totalRenders) * 100
+    slowest: summary.slowest,
+    errors: summary.totalErrors
   })
-
-  return Response.json(summary)
 }
 ```
 
-### 4. Production Debugging (Use with Caution)
-
-```tsx
-const CriticalComponent = withRSCTrace(Component, {
-  forceEnable: process.env.DEBUG_USER === request.headers.get('x-user-id'),
-  logLevel: 'error',
-  performance: { enabled: false } // Don't impact performance
-})
+**Example response:**
+```json
+{
+  "totalRenders": 1247,
+  "avgDuration": 156,
+  "slowest": { "component": "DataTable", "duration": 892 },
+  "errors": 3
+}
 ```
 
 ## Advanced Configuration
@@ -403,14 +401,12 @@ In production:
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
+Contributions are welcome! Please see the [Contributing Guide](./CONTRIBUTING.md) for details.
 
 ## License
 
 MIT © 2024 quzz contributors
 
-## Support
+## Issues
 
-- 📧 Email: support@quzz.dev
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/quzz/issues)
-- 💬 Discord: [Join our community](https://discord.gg/quzz)
+Report bugs and request features at [GitHub Issues](https://github.com/onurhan1337/quzz/issues)
