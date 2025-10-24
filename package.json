@@ -10,10 +10,16 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
+    },
+    "./visualizer/trace-collector": {
+      "types": "./dist/visualizer/trace-collector.d.ts",
+      "import": "./dist/visualizer/trace-collector.mjs",
+      "require": "./dist/visualizer/trace-collector.js"
     }
   },
   "files": [
     "dist",
+    "bin",
     "README.md",
     "LICENSE"
   ],

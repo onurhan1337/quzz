@@ -14,14 +14,17 @@ quzz provides a simple HOC wrapper that gives you detailed logging during develo
 ## Features
 
 - Zero configuration required
-- Automatic performance tracking
-- Component render timing with configurable thresholds
+- Simple HOC (`withRSCTrace`) wrapper for components
+- Automatic performance tracking with configurable thresholds
 - Error tracking with full context
 - Props logging with automatic sensitive data redaction
 - Component hierarchy visualization
+- Optional: `<RSCBoundary>` component for fine-grained tracing
+- Optional: Built-in trace visualizer CLI (`quzz-viz`)
 - TypeScript support
 - Plugin system for custom integrations
-- Zero production overhead (completely disabled unless explicitly enabled)
+- Zero production overhead (automatically disabled in production)
+- Production-safe by default
 
 ## Installation
 
@@ -52,7 +55,7 @@ Props: { userId: "user_123" }
 Memory: 45.2 MB
 ```
 
-### Configuration
+## Configuration
 
 Set global options in your root layout:
 
@@ -63,6 +66,7 @@ import { configure } from "quzz";
 if (process.env.NODE_ENV === "development") {
   configure({
     logLevel: "info",
+    outputFormat: "pretty",
     performance: {
       enabled: true,
       warnThreshold: 500, // Warn if render takes > 500ms
@@ -162,6 +166,79 @@ export async function GET() {
   "errors": 3
 }
 ```
+
+## Advanced Features
+
+### RSCBoundary Component
+
+Use `<RSCBoundary>` for fine-grained tracing without modifying your component structure:
+
+```tsx
+import { RSCBoundary } from "quzz";
+
+export default async function Dashboard({ userId }: { userId: string }) {
+  return (
+    <RSCBoundary label="dashboard" tags={["critical"]} trackTotalLatency={true}>
+      <div className="dashboard">
+        <RSCBoundary label="user-section">
+          <UserProfile userId={userId} />
+        </RSCBoundary>
+
+        <RSCBoundary label="feed-section" performance={{ warnThreshold: 200 }}>
+          <UserFeed userId={userId} />
+        </RSCBoundary>
+      </div>
+    </RSCBoundary>
+  );
+}
+```
+
+**When to use RSCBoundary vs withRSCTrace:**
+
+- **Use RSCBoundary** for: async components without default exports, fine-grained tracing of specific regions, components you can't modify
+- **Use withRSCTrace** for: simpler setup, lower overhead, most general component tracing
+
+### Trace Visualization (Optional)
+
+Visualize component traces with the built-in CLI tool:
+
+```tsx
+// Enable trace collection
+configure({
+  visualizer: {
+    enabled: true,
+    output: './traces.json'
+  }
+});
+```
+
+Then run your app and visualize:
+
+```bash
+npm run dev
+npx quzz-viz ./traces.json
+# Open http://localhost:3456
+```
+
+The visualizer provides timeline views, flamegraphs, statistics, and filtering capabilities.
+
+## Production Safety
+
+quzz is designed to be production-safe by default:
+
+- **Automatically disabled in production**: quzz checks `NODE_ENV` and disables all tracing in production builds
+- **Environment variable override**: Set `QUZZ_DISABLE=true` to disable quzz even in development
+- **Explicit production enabling**: To enable in production (not recommended), use `forceEnable: true`:
+
+```typescript
+// Only use this for debugging production issues temporarily
+configure({
+  forceEnable: true, // Required to run in production
+  logLevel: 'error' // Only log errors to minimize overhead
+})
+```
+
+**Important**: Never leave `forceEnable: true` in production code. It will impact performance.
 
 ## Advanced Configuration
 
