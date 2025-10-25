@@ -20,16 +20,131 @@ type AsyncLocalStorageInstance<T> = {
   run<R>(store: T, callback: () => R): R;
 };
 
-let AsyncLocalStorageClass: AsyncLocalStorageType<RequestContext> | null = null;
+const parseNodeVersion = (versionString: string): { major: number; minor: number; patch: number } => {
+  const match = versionString.match(/^v?(\d+)\.(\d+)\.(\d+)/);
+  if (!match) {
+    return { major: 0, minor: 0, patch: 0 };
+  }
+  return {
+    major: parseInt(match[1], 10),
+    minor: parseInt(match[2], 10),
+    patch: parseInt(match[3], 10),
+  };
+};
 
-if (typeof process !== "undefined" && process.versions?.node) {
+const isNodeVersionAtLeast = (major: number, minor: number = 0): boolean => {
+  if (typeof process === "undefined" || !process.version) {
+    return false;
+  }
+  const current = parseNodeVersion(process.version);
+  if (current.major > major) return true;
+  if (current.major < major) return false;
+  return current.minor >= minor;
+};
+
+const loadAsyncLocalStorageModule = (): any => {
   try {
     const module = require("node:async_hooks");
-    AsyncLocalStorageClass = module.AsyncLocalStorage;
-  } catch {
-    AsyncLocalStorageClass = null;
+    if (module.AsyncLocalStorage) return module.AsyncLocalStorage;
+  } catch {}
+
+  try {
+    const module = require("async_hooks");
+    if (module.AsyncLocalStorage) return module.AsyncLocalStorage;
+  } catch {}
+
+  return null;
+};
+
+const createSafeAsyncLocalStorageWrapper = (OriginalClass: any): AsyncLocalStorageType<RequestContext> => {
+  return class SafeAsyncLocalStorage {
+    private instance: any;
+
+    constructor() {
+      try {
+        this.instance = new OriginalClass();
+      } catch (e) {
+        console.error("[quzz] AsyncLocalStorage initialization failed:", e);
+        this.instance = null;
+      }
+    }
+
+    getStore(): RequestContext | undefined {
+      if (!this.instance) return undefined;
+      try {
+        return this.instance.getStore();
+      } catch {
+        return undefined;
+      }
+    }
+
+    enterWith(store: RequestContext): void {
+      if (!this.instance) return;
+      try {
+        this.instance.enterWith(store);
+      } catch {}
+    }
+
+    run<R>(store: RequestContext, callback: () => R): R {
+      if (!this.instance) return callback();
+      try {
+        return this.instance.run(store, callback);
+      } catch {
+        return callback();
+      }
+    }
+  } as any;
+};
+
+let versionWarningShown = false;
+
+const showVersionWarning = (nodeVersion: string, isSupported: boolean, isStable: boolean): void => {
+  if (versionWarningShown) return;
+
+  if (!isSupported) {
+    console.warn(
+      `[quzz] Warning: Node.js ${nodeVersion} detected. AsyncLocalStorage requires Node.js 12.17.0 or higher. ` +
+      `Using global fallback mechanism. Consider upgrading to Node.js 14.0.0 or higher for stable async context tracking.`
+    );
+    versionWarningShown = true;
+  } else if (!isStable) {
+    console.warn(
+      `[quzz] Warning: Node.js ${nodeVersion} detected. AsyncLocalStorage is experimental and may be unstable ` +
+      `in Node.js versions below 14.0.0. Consider upgrading to Node.js 14.0.0 or higher for better stability.`
+    );
+    versionWarningShown = true;
   }
-}
+};
+
+const initializeAsyncLocalStorage = (): AsyncLocalStorageType<RequestContext> | null => {
+  if (typeof process === "undefined" || !process.versions?.node) {
+    return null;
+  }
+
+  const isNode14OrHigher = isNodeVersionAtLeast(14, 0);
+  const isNode12_17OrHigher = isNodeVersionAtLeast(12, 17);
+
+  showVersionWarning(process.version, isNode12_17OrHigher, isNode14OrHigher);
+
+  if (!isNode12_17OrHigher) {
+    return null;
+  }
+
+  const AsyncLocalStorageModule = loadAsyncLocalStorageModule();
+
+  if (!AsyncLocalStorageModule) {
+    console.warn(
+      `[quzz] Failed to load AsyncLocalStorage module. Using global fallback mechanism.`
+    );
+    return null;
+  }
+
+  return isNode14OrHigher
+    ? AsyncLocalStorageModule
+    : createSafeAsyncLocalStorageWrapper(AsyncLocalStorageModule);
+};
+
+let AsyncLocalStorageClass = initializeAsyncLocalStorage();
 
 /**
  * Trace context for tracking nested component hierarchies with request isolation
@@ -46,18 +161,42 @@ class TraceContext {
   private globalCreatedAt?: number;
 
   private constructor() {
-    // Initialize AsyncLocalStorage if available
     if (AsyncLocalStorageClass) {
       try {
         this.asyncLocalStorage = new AsyncLocalStorageClass();
+
+        if (this.asyncLocalStorage && isNodeVersionAtLeast(14, 0)) {
+          const testStore: RequestContext = {
+            traceStack: [],
+            traceMap: new Map(),
+            contextId: 'test',
+            createdAt: Date.now()
+          };
+          this.asyncLocalStorage.run(testStore, () => {
+            const retrieved = this.asyncLocalStorage?.getStore();
+            if (!retrieved || retrieved.contextId !== 'test') {
+              throw new Error('AsyncLocalStorage verification failed');
+            }
+          });
+        }
       } catch (e) {
+        const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+        const nodeVersion = typeof process !== "undefined" ? process.version : 'unknown';
+
         console.warn(
-          "[quzz] AsyncLocalStorage initialization failed, using global trace context"
+          `[quzz] AsyncLocalStorage initialization failed (Node ${nodeVersion}): ${errorMessage}. ` +
+          `Using global fallback mechanism for trace context management.`
         );
         this.asyncLocalStorage = null;
       }
     } else {
       this.asyncLocalStorage = null;
+
+      if (typeof process !== "undefined" && process.versions?.node && !versionWarningShown) {
+        console.info(
+          `[quzz] Using global context fallback. AsyncLocalStorage is not available.`
+        );
+      }
     }
   }
 
@@ -213,7 +352,7 @@ class TraceContext {
    */
   runInNewContext<T>(fn: () => T): T {
     const contextId = this.generateContextId();
-    const startTime = process.hrtime.bigint();
+    const startTime = typeof process !== "undefined" && process.hrtime ? process.hrtime.bigint() : Date.now();
 
     MemoryLeakDetector.trackContextCreation(contextId);
 
@@ -226,28 +365,61 @@ class TraceContext {
           createdAt: Date.now(),
         };
 
-        const result = this.asyncLocalStorage.run(newContext, () => {
-          // Only validate in debug mode to avoid production overhead
-          if (ConfigManager.getInstance().getConfig().debugContext && Math.random() < 0.01) {
-            const validation = ContextValidator.validateContextState(
-              newContext.traceStack,
-              newContext.traceMap
-            );
-            if (!validation.valid) {
-              console.error(
-                "[quzz:context] Context validation failed:",
-                validation.errors
-              );
-            }
-          }
-          return fn();
-        });
+        const isNode14OrHigher = isNodeVersionAtLeast(14, 0);
+        let result: T;
 
-        // Only track overhead in debug mode
+        try {
+          result = this.asyncLocalStorage.run(newContext, () => {
+            if (ConfigManager.getInstance().getConfig().debugContext && Math.random() < 0.01) {
+              const validation = ContextValidator.validateContextState(
+                newContext.traceStack,
+                newContext.traceMap
+              );
+              if (!validation.valid) {
+                console.error(
+                  "[quzz:context] Context validation failed:",
+                  validation.errors
+                );
+              }
+            }
+            return fn();
+          });
+        } catch (asyncStorageError) {
+          if (!isNode14OrHigher) {
+            console.warn(
+              "[quzz:context] AsyncLocalStorage.run() failed in Node.js < 14. Falling back to global context.",
+              asyncStorageError instanceof Error ? asyncStorageError.message : asyncStorageError
+            );
+
+            const previousStack = [...this.globalTraceStack];
+            const previousMap = new Map(this.globalTraceMap);
+            const previousContextId = this.globalContextId;
+            const previousCreatedAt = this.globalCreatedAt;
+
+            try {
+              this.globalTraceStack = [];
+              this.globalTraceMap = new Map();
+              this.globalContextId = contextId;
+              this.globalCreatedAt = Date.now();
+
+              result = fn();
+            } finally {
+              this.globalTraceStack = previousStack;
+              this.globalTraceMap = previousMap;
+              this.globalContextId = previousContextId;
+              this.globalCreatedAt = previousCreatedAt;
+            }
+          } else {
+            throw asyncStorageError;
+          }
+        }
+
         if (ConfigManager.getInstance().getConfig().debugContext) {
-          const endTime = process.hrtime.bigint();
-          const overhead = Number(endTime - startTime) / 1000000;
-          this.contextOverhead.set(contextId, overhead);
+          const endTime = typeof process !== "undefined" && process.hrtime
+            ? Number(process.hrtime.bigint() - BigInt(startTime)) / 1000000
+            : Date.now() - Number(startTime);
+
+          this.contextOverhead.set(contextId, endTime);
 
           if (this.contextOverhead.size > 100) {
             const oldestKeys = Array.from(this.contextOverhead.keys()).slice(
@@ -265,7 +437,26 @@ class TraceContext {
 
         return result;
       }
-      return fn();
+
+      const previousStack = [...this.globalTraceStack];
+      const previousMap = new Map(this.globalTraceMap);
+      const previousContextId = this.globalContextId;
+      const previousCreatedAt = this.globalCreatedAt;
+
+      try {
+        this.globalTraceStack = [];
+        this.globalTraceMap = new Map();
+        this.globalContextId = contextId;
+        this.globalCreatedAt = Date.now();
+
+        return fn();
+      } finally {
+        this.globalTraceStack = previousStack;
+        this.globalTraceMap = previousMap;
+        this.globalContextId = previousContextId;
+        this.globalCreatedAt = previousCreatedAt;
+        MemoryLeakDetector.clearContext(contextId);
+      }
     } catch (error) {
       MemoryLeakDetector.clearContext(contextId);
 
@@ -273,6 +464,8 @@ class TraceContext {
         contextId,
         message: error instanceof Error ? error.message : "Unknown error",
         stack: error instanceof Error ? error.stack : undefined,
+        nodeVersion: typeof process !== "undefined" ? process.version : "unknown",
+        usingFallback: !this.asyncLocalStorage
       };
 
       if (ConfigManager.getInstance().getConfig().debugContext) {
@@ -358,6 +551,32 @@ class TraceContext {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Get runtime environment information
+   * @internal
+   */
+  getRuntimeInfo(): {
+    nodeVersion: string | undefined;
+    asyncLocalStorageAvailable: boolean;
+    usingFallback: boolean;
+    isStableVersion: boolean;
+    minimumRequiredVersion: string;
+    recommendedVersion: string;
+  } {
+    const nodeVersion = typeof process !== "undefined" ? process.version : undefined;
+    const hasAsyncLocalStorage = !!this.asyncLocalStorage;
+    const isNode14OrHigher = isNodeVersionAtLeast(14, 0);
+
+    return {
+      nodeVersion,
+      asyncLocalStorageAvailable: !!AsyncLocalStorageClass,
+      usingFallback: !hasAsyncLocalStorage,
+      isStableVersion: isNode14OrHigher,
+      minimumRequiredVersion: "12.17.0",
+      recommendedVersion: "14.0.0"
+    };
   }
 }
 
