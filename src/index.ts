@@ -129,6 +129,15 @@ export function withRSCTrace<P extends object>(
         parentTrace: parentTraceId,
       };
 
+      if (config.debugContext) {
+        const contextInfo = context?.getCurrentContext();
+        console.debug(`[quzz:component] Entering component "${componentName}"`, {
+          traceId,
+          parentTraceId,
+          context: contextInfo,
+        });
+      }
+
       if (context) {
         context.startTrace(metadata);
       }
@@ -216,10 +225,25 @@ export function withRSCTrace<P extends object>(
           tags
         );
 
+        if (config.debugContext) {
+          console.debug(`[quzz:component] Exiting component "${componentName}"`, {
+            traceId,
+            duration: metadata.duration,
+          });
+        }
+
         return result;
       } catch (error) {
         const serializedError = serializeError(error as Error);
         metadata.error = serializedError;
+
+        if (config.debugContext) {
+          console.debug(`[quzz:component] Error in component "${componentName}"`, {
+            traceId,
+            error: serializedError,
+            context: context?.getCurrentContext(),
+          });
+        }
 
         if (perfMonitor && !componentOptions.disable?.timing) {
           const duration = performance.now() - renderStartTime;

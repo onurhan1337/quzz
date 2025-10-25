@@ -164,6 +164,12 @@ export interface QuzzConfig {
    * Visualizer configuration for trace collection
    */
   visualizer?: VisualizerConfig
+
+  /**
+   * Enable debug logging for context operations
+   * @default false
+   */
+  debugContext?: boolean
 }
 
 /**

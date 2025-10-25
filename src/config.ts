@@ -1,4 +1,5 @@
 import type { QuzzConfig, RSCTraceOptions } from "./types";
+import { ConfigValidator, validateEnvironment } from "./validators";
 
 /**
  * Default configuration
@@ -29,6 +30,7 @@ const DEFAULT_CONFIG: Required<
     enabled: false,
     output: "./traces.json",
   },
+  debugContext: false,
 };
 
 /**
@@ -55,6 +57,28 @@ class ConfigManager {
   configure(config: Partial<QuzzConfig>): void {
     // Validate configuration
     this.validateConfig(config);
+
+    const validation = ConfigValidator.validate(config);
+    if (!validation.valid) {
+      throw new Error(`Invalid configuration: ${validation.errors.join(', ')}`)
+    }
+
+    if (validation.warnings.length > 0 && config.logLevel !== 'silent') {
+      validation.warnings.forEach(warning => {
+        console.warn(`[quzz:config] Warning: ${warning}`)
+      })
+    }
+
+    const envValidation = validateEnvironment()
+    if (!envValidation.valid) {
+      throw new Error(`Environment issues: ${envValidation.errors.join(', ')}`)
+    }
+
+    if (envValidation.warnings.length > 0 && config.logLevel !== 'silent') {
+      envValidation.warnings.forEach(warning => {
+        console.warn(`[quzz:env] Warning: ${warning}`)
+      })
+    }
 
     this.config = {
       ...this.config,

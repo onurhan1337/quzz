@@ -75,6 +75,15 @@ export async function RSCBoundary({
       parentTrace: parentTraceId,
     };
 
+    if (config.debugContext) {
+      const contextInfo = context?.getCurrentContext();
+      console.debug(`[quzz:boundary] Entering boundary "${label}"`, {
+        traceId,
+        parentTraceId,
+        context: contextInfo,
+      });
+    }
+
     if (context) {
       context.startTrace(metadata);
     }
@@ -174,10 +183,25 @@ export async function RSCBoundary({
 
       await logger.info(label, completionMessage, metadata, tags);
 
+      if (config.debugContext) {
+        console.debug(`[quzz:boundary] Exiting boundary "${label}"`, {
+          traceId,
+          duration: metadata.duration,
+          wallClockTime: metadata.wallClockTime,
+        });
+      }
+
       return result;
     } catch (error) {
       const serializedError = serializeError(error as Error);
       metadata.error = serializedError;
+
+      if (config.debugContext) {
+        console.debug(`[quzz:boundary] Error in boundary "${label}"`, {
+          traceId,
+          error: serializedError,
+        });
+      }
 
       if (perfMonitor && !disable?.timing) {
         const duration =
