@@ -68,16 +68,13 @@ class TraceContext {
       const store = this.asyncLocalStorage.getStore()
       if (store) return store
 
-      // Initialize new context for this async chain
       const newContext: RequestContext = {
         traceStack: [],
         traceMap: new Map()
       }
-      this.asyncLocalStorage.enterWith(newContext)
       return newContext
     }
 
-    // Fallback to global state
     return {
       traceStack: this.globalTraceStack,
       traceMap: this.globalTraceMap

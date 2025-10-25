@@ -1,10 +1,15 @@
-import type { ComponentType } from 'react'
-import type { RSCTraceOptions, TraceMetadata } from './types'
-import { getComponentName, sanitizeProps, serializeError, generateId } from './utils'
-import { ConfigManager } from './config'
-import { TraceContext } from './context'
-import { PerformanceMonitor } from './performance'
-import { Logger } from './logger'
+import type { ComponentType } from "react";
+import type { RSCTraceOptions, TraceMetadata } from "./types";
+import {
+  getComponentName,
+  sanitizeProps,
+  serializeError,
+  generateId,
+} from "./utils";
+import { ConfigManager } from "./config";
+import { TraceContext } from "./context";
+import { PerformanceMonitor } from "./performance";
+import { Logger } from "./logger";
 
 // Re-export types and configuration
 export type {
@@ -22,14 +27,17 @@ export type {
   LogTransport,
   PerformanceConfig,
   VisualizerConfig,
-} from './types'
+} from "./types";
 
-export { configure, getConfig, resetConfig } from './config'
-export { PerformanceMonitor } from './performance'
-export { TraceContext } from './context'
-export { RSCBoundary } from './boundary'
-export { TraceCollector } from './visualizer/trace-collector'
-export type { CollectedTrace, TraceSession } from './visualizer/trace-collector'
+export { configure, getConfig, resetConfig } from "./config";
+export { PerformanceMonitor } from "./performance";
+export { TraceContext } from "./context";
+export { RSCBoundary } from "./boundary";
+export { TraceCollector } from "./visualizer/trace-collector";
+export type {
+  CollectedTrace,
+  TraceSession,
+} from "./visualizer/trace-collector";
 
 /**
  * Get performance metrics for specific component or all components
@@ -37,8 +45,10 @@ export type { CollectedTrace, TraceSession } from './visualizer/trace-collector'
  * @returns Performance metrics object with render stats
  */
 export function getMetrics(componentName?: string) {
-  const monitor = PerformanceMonitor.getInstance()
-  return componentName ? monitor.getMetrics(componentName) : monitor.getAllMetrics()
+  const monitor = PerformanceMonitor.getInstance();
+  return componentName
+    ? monitor.getMetrics(componentName)
+    : monitor.getAllMetrics();
 }
 
 /**
@@ -46,7 +56,7 @@ export function getMetrics(componentName?: string) {
  * @returns Summary with total renders, errors, and timing stats
  */
 export function getPerformanceSummary() {
-  return PerformanceMonitor.getInstance().getSummary()
+  return PerformanceMonitor.getInstance().getSummary();
 }
 
 /**
@@ -54,14 +64,14 @@ export function getPerformanceSummary() {
  * @returns Formatted JSON string with all metrics data
  */
 export function exportMetrics() {
-  return PerformanceMonitor.getInstance().exportMetrics()
+  return PerformanceMonitor.getInstance().exportMetrics();
 }
 
 /**
  * Clear all collected performance metrics
  */
 export function clearMetrics() {
-  PerformanceMonitor.getInstance().clear()
+  PerformanceMonitor.getInstance().clear();
 }
 
 /**
@@ -78,168 +88,179 @@ export function withRSCTrace<P extends object>(
   Component: ComponentType<P>,
   componentOptions: RSCTraceOptions = {}
 ): ComponentType<P> {
-  const configManager = ConfigManager.getInstance()
+  const configManager = ConfigManager.getInstance();
 
-  const isEnabled = configManager.isEnabled(componentOptions)
+  const isEnabled = configManager.isEnabled(componentOptions);
 
   if (!isEnabled) {
-    return Component
+    return Component;
   }
 
   // Merge configuration
-  const config = configManager.mergeOptions(componentOptions)
-  const componentName = componentOptions.componentName || getComponentName(Component as ComponentType<any>)
-  const tags = componentOptions.tags
+  const config = configManager.mergeOptions(componentOptions);
+  const componentName =
+    componentOptions.componentName ||
+    getComponentName(Component as ComponentType<any>);
+  const tags = componentOptions.tags;
 
   // Check component filter
   if (config.componentFilter && !config.componentFilter.test(componentName)) {
-    return Component
+    return Component;
   }
 
   const TracedComponent = async (props: P) => {
-    const logger = Logger.getInstance()
-    const context = config.contextTracking ? TraceContext.getInstance() : null
-    const perfMonitor = config.performance?.enabled ? PerformanceMonitor.getInstance() : null
+    const logger = Logger.getInstance();
+    const context = config.contextTracking ? TraceContext.getInstance() : null;
+    const perfMonitor = config.performance?.enabled
+      ? PerformanceMonitor.getInstance()
+      : null;
 
-    // Track render start time for duration calculation
-    const renderStartTime = performance.now()
+    const executeComponent = async () => {
+      const renderStartTime = performance.now();
 
-    // Generate trace ID
-    const traceId = generateId('trace')
-    const parentTraceId = context?.getCurrentParentId()
+      const traceId = generateId("trace");
+      const parentTraceId = context?.getCurrentParentId();
 
-    // Initialize metadata
-    const metadata: TraceMetadata = {
-      componentName,
-      tags,
-      renderStart: Date.now(),
-      traceId,
-      parentTrace: parentTraceId,
-    }
+      const metadata: TraceMetadata = {
+        componentName,
+        tags,
+        renderStart: Date.now(),
+        traceId,
+        parentTrace: parentTraceId,
+      };
 
-    // Start trace context
-    if (context) {
-      context.startTrace(metadata)
-    }
-
-    // Capture memory before (if enabled)
-    if (config.performance?.trackMemory) {
-      const memBefore = perfMonitor?.getMemoryUsage()
-      if (memBefore) {
-        metadata.memory = memBefore
+      if (context) {
+        context.startTrace(metadata);
       }
-    }
 
-    // Execute plugins: onTraceStart
-    if (config.plugins) {
-      await Promise.allSettled(
-        config.plugins.map(plugin => plugin.onTraceStart?.(metadata))
-      )
-    }
+      if (config.performance?.trackMemory) {
+        const memBefore = perfMonitor?.getMemoryUsage();
+        if (memBefore) {
+          metadata.memory = memBefore;
+        }
+      }
 
-    // Log trace start
-    const shouldLogProps = config.logProps && !componentOptions.disable?.props
-
-    await logger.info(componentName, `Rendering started`, metadata, tags)
-
-    if (shouldLogProps) {
-      // Execute plugins: onPropsCapture
-      let capturedProps = { ...props } as Record<string, unknown>
       if (config.plugins) {
-        for (const plugin of config.plugins) {
-          if (plugin.onPropsCapture) {
-            capturedProps = plugin.onPropsCapture(capturedProps)
+        await Promise.allSettled(
+          config.plugins.map((plugin) => plugin.onTraceStart?.(metadata))
+        );
+      }
+
+      const shouldLogProps =
+        config.logProps && !componentOptions.disable?.props;
+
+      await logger.info(componentName, `Rendering started`, metadata, tags);
+
+      if (shouldLogProps) {
+        let capturedProps = { ...props } as Record<string, unknown>;
+        if (config.plugins) {
+          for (const plugin of config.plugins) {
+            if (plugin.onPropsCapture) {
+              capturedProps = plugin.onPropsCapture(capturedProps);
+            }
           }
         }
+
+        const sanitized = sanitizeProps(capturedProps, config);
+        metadata.props = sanitized;
+        await logger.debug(
+          componentName,
+          `Props captured`,
+          { ...metadata, props: sanitized },
+          tags
+        );
       }
 
-      const sanitized = sanitizeProps(capturedProps, config)
-      metadata.props = sanitized
-      await logger.debug(componentName, `Props captured`, { ...metadata, props: sanitized }, tags)
-    }
+      try {
+        const ComponentAny = Component as any;
+        const result = await Promise.resolve(ComponentAny(props));
 
-    try {
-      // Execute component
-      const ComponentAny = Component as any
-      const result = await Promise.resolve(ComponentAny(props))
+        const duration = performance.now() - renderStartTime;
+        metadata.renderEnd = Date.now();
+        metadata.duration = duration;
 
-      // Calculate duration
-      const duration = performance.now() - renderStartTime
-      metadata.renderEnd = Date.now()
-      metadata.duration = duration
+        if (context) {
+          context.updateTrace(traceId, {
+            duration,
+            renderEnd: metadata.renderEnd,
+          });
+        }
 
-      // Update context
-      if (context) {
-        context.updateTrace(traceId, { duration, renderEnd: metadata.renderEnd })
-      }
+        if (perfMonitor && !componentOptions.disable?.timing) {
+          perfMonitor.recordRender(componentName, duration, false);
 
-      // Record performance
-      if (perfMonitor && !componentOptions.disable?.timing) {
-        perfMonitor.recordRender(componentName, duration, false)
+          if (
+            config.performance?.warnThreshold &&
+            perfMonitor.shouldWarn(duration, config.performance)
+          ) {
+            await logger.warn(
+              componentName,
+              `Slow render detected: ${duration.toFixed(2)}ms`,
+              metadata,
+              undefined,
+              tags
+            );
+          }
+        }
 
-        // Warn if slow
-        if (config.performance?.warnThreshold && perfMonitor.shouldWarn(duration, config.performance)) {
-          await logger.warn(
+        if (config.plugins) {
+          await Promise.allSettled(
+            config.plugins.map((plugin) => plugin.onTraceEnd?.(metadata))
+          );
+        }
+
+        await logger.info(
+          componentName,
+          `Rendering completed in ${duration.toFixed(2)}ms`,
+          metadata,
+          tags
+        );
+
+        return result;
+      } catch (error) {
+        const serializedError = serializeError(error as Error);
+        metadata.error = serializedError;
+
+        if (perfMonitor && !componentOptions.disable?.timing) {
+          const duration = performance.now() - renderStartTime;
+          metadata.duration = duration;
+          perfMonitor.recordRender(componentName, duration, true);
+        }
+
+        if (config.plugins) {
+          await Promise.allSettled(
+            config.plugins.map((plugin) =>
+              plugin.onError?.(metadata, serializedError)
+            )
+          );
+        }
+
+        if (!componentOptions.disable?.errors) {
+          await logger.error(
             componentName,
-            `Slow render detected: ${duration.toFixed(2)}ms`,
+            `Rendering failed: ${serializedError.message}`,
             metadata,
-            undefined,
+            serializedError,
             tags
-          )
+          );
+        }
+
+        throw error;
+      } finally {
+        if (context) {
+          context.endTrace(traceId);
         }
       }
+    };
 
-      // Execute plugins: onTraceEnd
-      if (config.plugins) {
-        await Promise.allSettled(
-          config.plugins.map(plugin => plugin.onTraceEnd?.(metadata))
-        )
-      }
+    return (
+      context?.runInNewContext(() => executeComponent()) ?? executeComponent()
+    );
+  };
 
-      // Log success
-      await logger.info(
-        componentName,
-        `Rendering completed in ${duration.toFixed(2)}ms`,
-        metadata,
-        tags
-      )
+  TracedComponent.displayName = `withRSCTrace(${componentName})`;
 
-      return result
-    } catch (error) {
-      const serializedError = serializeError(error as Error)
-      metadata.error = serializedError
-
-      // Record error in performance - FIX: Calculate actual duration
-      if (perfMonitor && !componentOptions.disable?.timing) {
-        const duration = performance.now() - renderStartTime
-        metadata.duration = duration
-        perfMonitor.recordRender(componentName, duration, true)
-      }
-
-      // Execute plugins: onError
-      if (config.plugins) {
-        await Promise.allSettled(
-          config.plugins.map(plugin => plugin.onError?.(metadata, serializedError))
-        )
-      }
-
-      // Log error
-      if (!componentOptions.disable?.errors) {
-        await logger.error(componentName, `Rendering failed: ${serializedError.message}`, metadata, serializedError, tags)
-      }
-
-      throw error
-    } finally {
-      // End trace context
-      if (context) {
-        context.endTrace(traceId)
-      }
-    }
-  }
-
-  TracedComponent.displayName = `withRSCTrace(${componentName})`
-
-  return TracedComponent as any
+  return TracedComponent as any;
 }
 
-export default withRSCTrace
+export default withRSCTrace;
