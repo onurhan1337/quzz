@@ -1,4 +1,7 @@
-# quzz
+<div align="center">
+  <img src="logo.svg" alt="quzz logo" width="64" height="64">
+  <h1>quzz</h1>
+</div>
 
 Debugging tool for React Server Components in Next.js. Wrap your components to get visibility into render times, props, errors, and execution flow.
 
@@ -207,8 +210,8 @@ Visualize component traces with the built-in CLI tool:
 configure({
   visualizer: {
     enabled: true,
-    output: './traces.json'
-  }
+    output: "./traces.json",
+  },
 });
 ```
 
@@ -234,8 +237,8 @@ quzz is designed to be production-safe by default:
 // Only use this for debugging production issues temporarily
 configure({
   forceEnable: true, // Required to run in production
-  logLevel: 'error' // Only log errors to minimize overhead
-})
+  logLevel: "error", // Only log errors to minimize overhead
+});
 ```
 
 **Important**: Never leave `forceEnable: true` in production code. It will impact performance.

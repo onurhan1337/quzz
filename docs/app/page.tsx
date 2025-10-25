@@ -140,9 +140,12 @@ configure({
               RSCBoundary: Alternative Approach
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground">
-              Use <code className="px-2 py-0.5 rounded bg-muted text-sm font-mono">&lt;RSCBoundary&gt;</code> for
-              fine-grained tracing without HOCs. Perfect for async components,
-              nested hierarchies, and tracking total latency.
+              Use{" "}
+              <code className="px-2 py-0.5 rounded bg-muted text-sm font-mono">
+                &lt;RSCBoundary&gt;
+              </code>{" "}
+              for fine-grained tracing without HOCs. Perfect for async
+              components, nested hierarchies, and tracking total latency.
             </p>
           </div>
 

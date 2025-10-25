@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   title: "quzz - RSC Debugging Tool",
   description:
     "Minimal DX tool for debugging React Server Components in Next.js App Router",
+  icons: {
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export default function RootLayout({
