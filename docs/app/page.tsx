@@ -21,8 +21,8 @@ export default function Home() {
       <Separator />
 
       <FeatureExample
-        title="Wrap and trace any Server Component"
-        description="Get instant visibility into your React Server Components with a simple HOC wrapper. Track performance, props, and execution flow without changing your component logic."
+        title="One line. Infinite insights."
+        description="Wrap any RSC component and boom - you get logs, performance data, and error tracking. No config needed, no BS."
         language="typescript"
         lightTheme="github-light"
         darkTheme="vesper"
@@ -58,11 +58,11 @@ export const UserProfile = withRSCTrace(
         <div className="max-w-[900px] mx-auto px-4 relative">
           <div className="max-w-[780px] mx-auto mb-12">
             <h2 className="text-4xl font-bold tracking-tight mb-4">
-              See it in action
+              Watch the magic happen
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground">
-              Watch how quzz logs component execution in real-time with
-              beautiful terminal output.
+              See your components come alive with real-time logs and performance
+              data. No more black box debugging.
             </p>
           </div>
 
@@ -73,8 +73,8 @@ export const UserProfile = withRSCTrace(
       <Separator />
 
       <FeatureExample
-        title="Zero configuration, maximum flexibility"
-        description="Start with zero config - just wrap your component. When you need more control, customize everything from log levels to performance thresholds."
+        title="Zero config. Maximum power."
+        description="Works out of the box, but when you need to go deeper - customize everything. Log levels, performance budgets, custom formatters. You name it."
         language="typescript"
         lightTheme="github-light"
         darkTheme="vesper"
@@ -137,15 +137,15 @@ configure({
         <div className="max-w-[900px] mx-auto px-4 relative">
           <div className="max-w-[780px] mx-auto mb-12">
             <h2 className="text-4xl font-bold tracking-tight mb-4">
-              RSCBoundary: Alternative Approach
+              RSCBoundary: The wrapper-free way
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground">
-              Use{" "}
+              Don't like HOCs? No problem. Use{" "}
               <code className="px-2 py-0.5 rounded bg-muted text-sm font-mono">
                 &lt;RSCBoundary&gt;
               </code>{" "}
-              for fine-grained tracing without HOCs. Perfect for async
-              components, nested hierarchies, and tracking total latency.
+              to wrap any part of your component tree. Perfect for async
+              components and complex hierarchies.
             </p>
           </div>
 
@@ -269,10 +269,10 @@ configure({
         <div className="max-w-4xl mx-auto px-4 relative">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold tracking-tight mb-3">
-              Get started in seconds
+              Get started in 30 seconds
             </h2>
             <p className="text-muted-foreground">
-              Install quzz and wrap your first component in under a minute.
+              Install, wrap, debug. That's it. No tutorials, no complexity.
             </p>
           </div>
 
@@ -288,7 +288,7 @@ configure({
                   <code className="text-foreground">npm install quzz</code>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Available on npm with zero dependencies
+                  One command. Zero dependencies. Maximum impact.
                 </p>
               </div>
             </div>
@@ -314,7 +314,7 @@ configure({
                   </code>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Use the HOC to enable debugging
+                  One line. Instant debugging superpowers.
                 </p>
               </div>
             </div>
@@ -325,7 +325,9 @@ configure({
                 3
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold mb-3">Run and see logs</h3>
+                <h3 className="text-lg font-semibold mb-3">
+                  Run and see the magic
+                </h3>
                 <div className="bg-muted rounded-md p-3 font-mono text-sm mb-3">
                   <code className="text-foreground block">
                     npm run dev
@@ -334,7 +336,7 @@ configure({
                   </code>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  See logs instantly in your dev server
+                  Boom! Your components are now talking to you.
                 </p>
               </div>
             </div>
@@ -348,10 +350,10 @@ configure({
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold tracking-tight mb-3">
-              See quzz in action
+              Try it live
             </h2>
             <p className="text-muted-foreground">
-              Try the interactive demo to see quzz logging in real-time
+              Play with the interactive demo and see quzz in action
             </p>
           </div>
 

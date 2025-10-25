@@ -31,12 +31,19 @@ export function Hero() {
             </div>
           </motion.div>
           <motion.h1
-            className="text-3xl md:text-4xl font-semibold tracking-tight mb-6 bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text"
+            className="text-3xl md:text-4xl font-semibold tracking-tight mb-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            Minimal DX tool for debugging React Server Components
+            Debug React Server Components
+            <br />
+            <span className="relative inline-block">
+              <span className="text-primary font-bold text-2xl md:text-3xl relative z-10">
+                effortlessly
+              </span>
+              <span className="absolute inset-0 bg-lime-300/60 rounded-sm -rotate-1 transform -skew-x-12"></span>
+            </span>
           </motion.h1>
           <motion.p
             className="text-base text-muted-foreground mb-8 leading-relaxed"
@@ -44,9 +51,14 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            Production-grade debugging and performance monitoring for Next.js
-            App Router. Wrap your components to get instant visibility into
-            render times, props, and execution flow.
+            <span className="font-medium">Simple debugging</span> for React
+            Server Components.
+            <br className="hidden sm:block" />
+            Get instant visibility into performance, errors, and execution flow
+            <span className="text-primary font-medium ml-1">
+              with zero configuration
+            </span>
+            .
           </motion.p>
           <motion.div
             className="flex flex-wrap gap-3 justify-center"
