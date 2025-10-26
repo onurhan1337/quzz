@@ -5,6 +5,7 @@ import { ConfigManager } from "./config";
 import { TraceContext } from "./context";
 import { PerformanceMonitor } from "./performance";
 import { Logger } from "./logger";
+import { ContextManager } from "./storage/context-manager";
 
 /**
  * RSCBoundary component for tracing React Server Components
@@ -56,6 +57,13 @@ export async function RSCBoundary({
   const perfMonitor = config.performance?.enabled
     ? PerformanceMonitor.getInstance()
     : null;
+  const contextManager =
+    config.enableSnapshots || config.verboseMode
+      ? ContextManager.getInstance({
+          enableSnapshots: true,
+          debugMode: config.debugContext,
+        })
+      : null;
 
   const executeBoundary = async () => {
     const wallClockStart = shouldTrackTotalLatency ? Date.now() : 0;
@@ -82,6 +90,22 @@ export async function RSCBoundary({
         parentTraceId,
         context: contextInfo,
       });
+    }
+
+    if (config.verboseMode && contextManager) {
+      const snapshot = contextManager.captureSnapshot({
+        label: `boundary-enter:${label}`,
+        maxSnapshots: 100,
+      });
+      if (snapshot && config.debugContext) {
+        console.debug(
+          `[quzz:snapshot] Captured context snapshot for boundary "${label}"`,
+          {
+            timestamp: new Date(snapshot.timestamp).toISOString(),
+            stackDepth: snapshot.stackDepth,
+          }
+        );
+      }
     }
 
     if (context) {
@@ -191,6 +215,22 @@ export async function RSCBoundary({
         });
       }
 
+      if (config.verboseMode && contextManager) {
+        const snapshot = contextManager.captureSnapshot({
+          label: `boundary-exit:${label}`,
+          maxSnapshots: 100,
+        });
+        if (snapshot && config.debugContext) {
+          console.debug(
+            `[quzz:snapshot] Captured exit snapshot for boundary "${label}"`,
+            {
+              timestamp: new Date(snapshot.timestamp).toISOString(),
+              duration: metadata.duration,
+            }
+          );
+        }
+      }
+
       return result;
     } catch (error) {
       const serializedError = serializeError(error as Error);
@@ -201,6 +241,23 @@ export async function RSCBoundary({
           traceId,
           error: serializedError,
         });
+      }
+
+      if (config.verboseMode && contextManager) {
+        const snapshot = contextManager.captureSnapshot({
+          label: `boundary-error:${label}`,
+          maxSnapshots: 100,
+        });
+        if (snapshot && config.debugContext) {
+          console.debug(
+            `[quzz:snapshot] Captured error snapshot for boundary "${label}"`,
+            {
+              timestamp: new Date(snapshot.timestamp).toISOString(),
+              error: serializedError.message,
+              stackDepth: snapshot.stackDepth,
+            }
+          );
+        }
       }
 
       if (perfMonitor && !disable?.timing) {

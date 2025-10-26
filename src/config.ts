@@ -31,6 +31,8 @@ const DEFAULT_CONFIG: Required<
     output: "./traces.json",
   },
   debugContext: false,
+  enableSnapshots: false,
+  verboseMode: false,
 };
 
 /**
@@ -60,24 +62,24 @@ class ConfigManager {
 
     const validation = ConfigValidator.validate(config);
     if (!validation.valid) {
-      throw new Error(`Invalid configuration: ${validation.errors.join(', ')}`)
+      throw new Error(`Invalid configuration: ${validation.errors.join(", ")}`);
     }
 
-    if (validation.warnings.length > 0 && config.logLevel !== 'silent') {
-      validation.warnings.forEach(warning => {
-        console.warn(`[quzz:config] Warning: ${warning}`)
-      })
+    if (validation.warnings.length > 0 && config.logLevel !== "silent") {
+      validation.warnings.forEach((warning) => {
+        console.warn(`[quzz:config] Warning: ${warning}`);
+      });
     }
 
-    const envValidation = validateEnvironment()
+    const envValidation = validateEnvironment();
     if (!envValidation.valid) {
-      throw new Error(`Environment issues: ${envValidation.errors.join(', ')}`)
+      throw new Error(`Environment issues: ${envValidation.errors.join(", ")}`);
     }
 
-    if (envValidation.warnings.length > 0 && config.logLevel !== 'silent') {
-      envValidation.warnings.forEach(warning => {
-        console.warn(`[quzz:env] Warning: ${warning}`)
-      })
+    if (envValidation.warnings.length > 0 && config.logLevel !== "silent") {
+      envValidation.warnings.forEach((warning) => {
+        console.warn(`[quzz:env] Warning: ${warning}`);
+      });
     }
 
     this.config = {

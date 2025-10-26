@@ -20,7 +20,7 @@ class TraceContext {
     if (!versionInfo.isSupported && config.debugContext) {
       console.warn(
         `[quzz] Node.js ${versionInfo.version} detected. AsyncLocalStorage requires Node.js 12.17.0 or higher. ` +
-        `Using fallback mechanism.`
+          `Using fallback mechanism.`
       );
     } else if (!versionInfo.isStable && config.debugContext) {
       console.info(
@@ -41,7 +41,8 @@ class TraceContext {
         maxSnapshots: 100,
         snapshotInterval: 5000,
         leakThreshold: 50 * 1024 * 1024,
-        autoSnapshot: config.performance?.trackMemory && config.performance?.aggregate,
+        autoSnapshot:
+          config.performance?.trackMemory && config.performance?.aggregate,
       },
     });
   }
@@ -128,7 +129,10 @@ class TraceContext {
    */
   runInNewContext<T>(fn: () => T): T {
     const contextId = `ctx_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const startTime = typeof process !== "undefined" && process.hrtime ? process.hrtime.bigint() : Date.now();
+    const startTime =
+      typeof process !== "undefined" && process.hrtime
+        ? process.hrtime.bigint()
+        : Date.now();
 
     MemoryLeakDetector.trackContextCreation(contextId);
 
@@ -136,38 +140,48 @@ class TraceContext {
       const config = ConfigManager.getInstance().getConfig();
       const trackMemory = config.performance?.trackMemory ?? false;
 
-      const result = this.contextManager.runInContext(() => {
-        if (config.debugContext && Math.random() < 0.01) {
-          const traceStorage = this.contextManager.getStorage<import("./storage/trace-storage").TraceContext>("trace");
+      const result = this.contextManager.runInContext(
+        () => {
+          if (config.debugContext && Math.random() < 0.01) {
+            const traceStorage =
+              this.contextManager.getStorage<
+                import("./storage/trace-storage").TraceContext
+              >("trace");
 
-          if (traceStorage) {
-            const traceContext = traceStorage.getStore();
-            if (traceContext) {
-              const validation = ContextValidator.validateContextState(
-                traceContext.traceStack,
-                traceContext.traceMap
-              );
-              if (!validation.valid) {
-                console.error(
-                  "[quzz:context] Context validation failed:",
-                  validation.errors
+            if (traceStorage) {
+              const traceContext = traceStorage.getStore();
+              if (traceContext) {
+                const validation = ContextValidator.validateContextState(
+                  traceContext.traceStack,
+                  traceContext.traceMap
                 );
+                if (!validation.valid) {
+                  console.error(
+                    "[quzz:context] Context validation failed:",
+                    validation.errors
+                  );
+                }
               }
             }
           }
-        }
-        return fn();
-      }, { trackMemory });
+          return fn();
+        },
+        { trackMemory }
+      );
 
       if (config.debugContext) {
-        const endTime = typeof process !== "undefined" && process.hrtime
-          ? Number(process.hrtime.bigint() - BigInt(startTime)) / 1000000
-          : Date.now() - Number(startTime);
+        const endTime =
+          typeof process !== "undefined" && process.hrtime
+            ? Number(process.hrtime.bigint() - BigInt(startTime)) / 1000000
+            : Date.now() - Number(startTime);
 
         this.contextOverhead.set(contextId, endTime);
 
         if (this.contextOverhead.size > 100) {
-          const oldestKeys = Array.from(this.contextOverhead.keys()).slice(0, 20);
+          const oldestKeys = Array.from(this.contextOverhead.keys()).slice(
+            0,
+            20
+          );
           oldestKeys.forEach((key) => {
             this.contextOverhead.delete(key);
             MemoryLeakDetector.clearContext(key);
@@ -184,8 +198,9 @@ class TraceContext {
         contextId,
         message: error instanceof Error ? error.message : "Unknown error",
         stack: error instanceof Error ? error.stack : undefined,
-        nodeVersion: typeof process !== "undefined" ? process.version : "unknown",
-        stats: this.contextManager.getAllStats()
+        nodeVersion:
+          typeof process !== "undefined" ? process.version : "unknown",
+        stats: this.contextManager.getAllStats(),
       };
 
       if (ConfigManager.getInstance().getConfig().debugContext) {
@@ -202,7 +217,7 @@ class TraceContext {
   /**
    * Export trace tree for visualization
    */
-  exportTraceTree(): ReturnType<TraceCollector['getSession']> | null {
+  exportTraceTree(): ReturnType<TraceCollector["getSession"]> | null {
     const config = ConfigManager.getInstance().getConfig();
     if (!config.visualizer?.enabled) {
       return null;
@@ -261,7 +276,10 @@ class TraceContext {
     traceMapSize: number;
   } | null {
     try {
-      const traceStorage = this.contextManager.getStorage<import("./storage/trace-storage").TraceContext>("trace");
+      const traceStorage =
+        this.contextManager.getStorage<
+          import("./storage/trace-storage").TraceContext
+        >("trace");
       if (!traceStorage) return null;
 
       const context = traceStorage.getStore();
@@ -317,7 +335,9 @@ class TraceContext {
    * Get memory trend
    * @internal
    */
-  getMemoryTrend(windowSize?: number): ReturnType<ContextManager["getMemoryTrend"]> {
+  getMemoryTrend(
+    windowSize?: number
+  ): ReturnType<ContextManager["getMemoryTrend"]> {
     return this.contextManager.getMemoryTrend(windowSize);
   }
 
@@ -325,7 +345,9 @@ class TraceContext {
    * Update configuration
    * @internal
    */
-  updateConfig(config: Parameters<ContextManager["updateFromConfig"]>[0]): void {
+  updateConfig(
+    config: Parameters<ContextManager["updateFromConfig"]>[0]
+  ): void {
     this.contextManager.updateFromConfig(config);
   }
 }
