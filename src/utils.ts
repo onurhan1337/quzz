@@ -123,6 +123,94 @@ export interface SanitizePropsConfig {
 }
 
 /**
+ * Type handlers for safe stringify
+ */
+const stringifyHandlers = {
+  primitive: (val: unknown): string | null => {
+    if (val === null) return "null";
+    if (val === undefined) return "undefined";
+    if (typeof val === "string") return JSON.stringify(val);
+    if (typeof val === "number" || typeof val === "boolean") return String(val);
+    if (typeof val === "bigint") return `${val}n`;
+    if (typeof val === "symbol") return val.toString();
+    if (typeof val === "function")
+      return `[Function: ${(val as Function).name || "anonymous"}]`;
+    return null;
+  },
+
+  special: (val: unknown, showPromiseTypes: boolean): string | null => {
+    if (val instanceof Date) return `"${val.toISOString()}"`;
+    if (val instanceof RegExp) return `"${val.toString()}"`;
+    if (val instanceof Error) return `"[Error: ${val.message}]"`;
+
+    if (isPromise(val)) {
+      if (showPromiseTypes) {
+        const typeHint = inferPromiseType(val);
+        return typeHint !== "unknown"
+          ? `"[Promise<${typeHint}>]"`
+          : '"[Promise]"';
+      }
+      return '"[Promise]"';
+    }
+
+    return null;
+  },
+};
+
+/**
+ * Safe stringify that handles circular references, Promises, and complex types
+ * Zero dependencies - custom implementation
+ */
+export function safeStringify(
+  value: unknown,
+  options: {
+    maxDepth?: number;
+    showPromiseTypes?: boolean;
+  } = {}
+): string {
+  const maxDepth = options.maxDepth ?? 3;
+  const showPromiseTypes = options.showPromiseTypes ?? true;
+  const seen = new WeakSet<object>();
+
+  function stringify(val: unknown, depth: number): string {
+    const primitive = stringifyHandlers.primitive(val);
+    if (primitive !== null) return primitive;
+
+    if (depth >= maxDepth) return '"[Max Depth]"';
+
+    const special = stringifyHandlers.special(val, showPromiseTypes);
+    if (special !== null) return special;
+
+    if (typeof val === "object" && val !== null) {
+      if (seen.has(val)) return '"[Circular]"';
+
+      seen.add(val);
+      try {
+        if (Array.isArray(val)) {
+          const items = val.map((item) => stringify(item, depth + 1));
+          return `[${items.join(",")}]`;
+        }
+
+        const entries = Object.entries(val)
+          .map(([k, v]) => `${JSON.stringify(k)}:${stringify(v, depth + 1)}`)
+          .join(",");
+        return `{${entries}}`;
+      } finally {
+        seen.delete(val);
+      }
+    }
+
+    return '"[Unknown]"';
+  }
+
+  try {
+    return stringify(value, 0);
+  } catch (error) {
+    return `"[Stringify Error: ${error instanceof Error ? error.message : "Unknown"}]"`;
+  }
+}
+
+/**
  * Helper to check if a result is a Promise error
  */
 function isPromiseErrorResult(value: unknown): value is PromiseErrorResult {
@@ -249,7 +337,8 @@ export function sanitizeProps(
       }
 
       if (entries.length > maxObjectProps) {
-        sanitizedObj["..."] = `[${entries.length - maxObjectProps} more properties]`;
+        sanitizedObj["..."] =
+          `[${entries.length - maxObjectProps} more properties]`;
       }
 
       return sanitizedObj;
@@ -404,7 +493,8 @@ export async function sanitizePropsAsync(
       }
 
       if (entries.length > maxObjectProps) {
-        sanitizedObj["..."] = `[${entries.length - maxObjectProps} more properties]`;
+        sanitizedObj["..."] =
+          `[${entries.length - maxObjectProps} more properties]`;
       }
 
       return sanitizedObj;
@@ -466,7 +556,11 @@ export function serializeError(
     if (currentDepth >= maxDepth) {
       serialized.cause = "[Max depth reached for error cause chain]";
     } else if (error.cause instanceof Error) {
-      serialized.cause = serializeError(error.cause, maxDepth, currentDepth + 1);
+      serialized.cause = serializeError(
+        error.cause,
+        maxDepth,
+        currentDepth + 1
+      );
     } else {
       serialized.cause = String(error.cause);
     }

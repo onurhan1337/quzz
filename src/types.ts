@@ -4,6 +4,27 @@ export type LogLevel = "silent" | "error" | "warn" | "info" | "debug" | "trace";
 export type OutputFormat = "pretty" | "json" | "compact" | "custom";
 
 /**
+ * Valid log levels for type-safe validation
+ */
+export const VALID_LOG_LEVELS: readonly LogLevel[] = [
+  "silent",
+  "error",
+  "warn",
+  "info",
+  "debug",
+  "trace",
+] as const;
+
+/**
+ * Valid output formats for type-safe validation
+ */
+export const VALID_OUTPUT_FORMATS: readonly OutputFormat[] = [
+  "pretty",
+  "json",
+  "compact",
+] as const;
+
+/**
  * Custom log formatter function
  */
 export type LogFormatter = (entry: LogEntry) => string | void;
@@ -50,11 +71,21 @@ export interface PerformanceConfig {
    */
   trackMemory?: boolean;
   /**
+   * Memory usage threshold in bytes. Warn when memory delta exceeds this value
+   * @default 50 * 1024 * 1024 (50MB)
+   */
+  memoryThreshold?: number;
+  /**
    * Aggregate metrics over time
    * @default false
    */
   aggregate?: boolean;
 }
+
+/**
+ * Prop serialization strategy
+ */
+export type PropSerializationStrategy = "safe" | "standard";
 
 /**
  * Props logging configuration
@@ -91,6 +122,13 @@ export interface PropsConfig {
    * @default 3
    */
   maxErrorDepth?: number;
+  /**
+   * Serialization strategy for props
+   * - 'safe': Uses custom safe stringify that handles circular refs, Promises, and complex types
+   * - 'standard': Uses default sanitization (existing behavior)
+   * @default 'standard'
+   */
+  serializationStrategy?: PropSerializationStrategy;
 }
 
 /**
@@ -231,6 +269,12 @@ export interface QuzzConfig {
    * @default false
    */
   verboseMode?: boolean;
+
+  /**
+   * Suppress configuration warnings (e.g., awaitProps side effects warning)
+   * @default false
+   */
+  suppressConfigWarnings?: boolean;
 }
 
 /**

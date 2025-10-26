@@ -30,9 +30,13 @@ export type {
   PerformanceConfig,
   PropsConfig,
   VisualizerConfig,
+  PropSerializationStrategy,
 } from "./types";
 
+export { VALID_LOG_LEVELS, VALID_OUTPUT_FORMATS } from "./types";
+
 export type { SanitizePropsConfig } from "./utils";
+export { safeStringify } from "./utils";
 
 export { configure, getConfig, resetConfig } from "./config";
 export { PerformanceMonitor } from "./performance";
@@ -272,6 +276,7 @@ export function withRSCTrace<P extends object>(
         if (perfMonitor && !componentOptions.disable?.timing) {
           perfMonitor.recordRender(componentName, duration, false);
 
+          // Check render duration threshold
           if (
             config.performance?.warnThreshold &&
             perfMonitor.shouldWarn(duration, config.performance)
@@ -283,6 +288,27 @@ export function withRSCTrace<P extends object>(
               undefined,
               tags
             );
+          }
+
+          // Check memory threshold
+          if (config.performance?.trackMemory && metadata.memory) {
+            const memAfter = perfMonitor.getMemoryUsage();
+            const memCheck = perfMonitor.shouldWarnMemory(
+              metadata.memory,
+              memAfter,
+              config.performance
+            );
+
+            if (memCheck.exceeded) {
+              const deltaMB = (memCheck.delta / 1024 / 1024).toFixed(2);
+              await logger.warn(
+                componentName,
+                `High memory usage detected: +${deltaMB}MB`,
+                metadata,
+                undefined,
+                tags
+              );
+            }
           }
         }
 

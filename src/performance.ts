@@ -182,6 +182,27 @@ class PerformanceMonitor {
   }
 
   /**
+   * Check if memory delta exceeds threshold
+   */
+  shouldWarnMemory(
+    memBefore: { heapUsed: number; heapTotal: number } | null,
+    memAfter: { heapUsed: number; heapTotal: number } | null,
+    config: PerformanceConfig
+  ): { exceeded: boolean; delta: number } {
+    if (!memBefore || !memAfter) {
+      return { exceeded: false, delta: 0 };
+    }
+
+    const delta = memAfter.heapUsed - memBefore.heapUsed;
+    const threshold = config.memoryThreshold ?? 50 * 1024 * 1024; // 50MB default
+
+    return {
+      exceeded: delta > threshold,
+      delta,
+    };
+  }
+
+  /**
    * Clear all metrics
    */
   clear(): void {

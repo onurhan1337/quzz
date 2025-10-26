@@ -1,4 +1,5 @@
 import type { QuzzConfig, RSCTraceOptions } from "./types";
+import { VALID_LOG_LEVELS, VALID_OUTPUT_FORMATS } from "./types";
 import { ConfigValidator, validateEnvironment } from "./validators";
 
 /**
@@ -16,6 +17,7 @@ const DEFAULT_CONFIG: Required<
     enabled: false,
     warnThreshold: 1000,
     trackMemory: false,
+    memoryThreshold: 50 * 1024 * 1024, // 50MB
     aggregate: false,
   },
   props: {
@@ -25,6 +27,7 @@ const DEFAULT_CONFIG: Required<
     maxArrayItems: 10,
     maxObjectProps: 20,
     maxErrorDepth: 3,
+    serializationStrategy: "standard",
   },
   logProps: false,
   forceEnable: false,
@@ -41,6 +44,7 @@ const DEFAULT_CONFIG: Required<
   debugContext: false,
   enableSnapshots: false,
   verboseMode: false,
+  suppressConfigWarnings: false,
 };
 
 /**
@@ -49,6 +53,7 @@ const DEFAULT_CONFIG: Required<
 class ConfigManager {
   private static instance: ConfigManager;
   private config: QuzzConfig;
+  private warnedKeys = new Set<string>();
 
   private constructor() {
     this.config = { ...DEFAULT_CONFIG };
@@ -109,31 +114,40 @@ class ConfigManager {
   }
 
   /**
+   * Emit a warning only once per key
+   */
+  private warnOnce(key: string, message: string): void {
+    if (this.warnedKeys.has(key)) {
+      return;
+    }
+    this.warnedKeys.add(key);
+    console.warn(message);
+  }
+
+  /**
    * Validate configuration options
    */
   private validateConfig(config: Partial<QuzzConfig>): void {
+    const suppressWarnings = config.suppressConfigWarnings ?? false;
+
     // Validate log level
-    if (config.logLevel) {
-      const validLevels = ["silent", "error", "warn", "info", "debug", "trace"];
-      if (!validLevels.includes(config.logLevel)) {
-        console.warn(
-          `[quzz] Invalid logLevel "${
-            config.logLevel
-          }". Valid options: ${validLevels.join(", ")}`
-        );
-      }
+    if (config.logLevel && !VALID_LOG_LEVELS.includes(config.logLevel)) {
+      this.warnOnce(
+        "invalid-logLevel",
+        `[quzz] Invalid logLevel "${config.logLevel}". Valid options: ${VALID_LOG_LEVELS.join(", ")}`
+      );
     }
 
     // Validate output format
-    if (config.outputFormat) {
-      const validFormats = ["pretty", "json", "compact"];
-      if (!validFormats.includes(config.outputFormat)) {
-        console.warn(
-          `[quzz] Invalid outputFormat "${
-            config.outputFormat
-          }". Valid options: ${validFormats.join(", ")}`
-        );
-      }
+    if (
+      config.outputFormat &&
+      config.outputFormat !== "custom" &&
+      !VALID_OUTPUT_FORMATS.includes(config.outputFormat)
+    ) {
+      this.warnOnce(
+        "invalid-outputFormat",
+        `[quzz] Invalid outputFormat "${config.outputFormat}". Valid options: ${VALID_OUTPUT_FORMATS.join(", ")}, custom`
+      );
     }
 
     // Validate performance config
@@ -142,14 +156,18 @@ class ConfigManager {
         config.performance.warnThreshold !== undefined &&
         config.performance.warnThreshold < 0
       ) {
-        console.warn("[quzz] Performance warnThreshold must be positive");
+        this.warnOnce(
+          "invalid-warnThreshold",
+          "[quzz] Performance warnThreshold must be positive"
+        );
       }
     }
 
     // Validate props config
-    if (config.props) {
+    if (config.props && !suppressWarnings) {
       if (config.props.awaitProps && config.logLevel !== "silent") {
-        console.warn(
+        this.warnOnce(
+          "awaitProps-enabled",
           "[quzz] Warning: awaitProps is enabled. This may trigger side effects (DB/network calls) or cause performance issues."
         );
       }
@@ -157,7 +175,8 @@ class ConfigManager {
         config.props.awaitTimeout !== undefined &&
         config.props.awaitTimeout < 100
       ) {
-        console.warn(
+        this.warnOnce(
+          "awaitTimeout-too-low",
           "[quzz] Props awaitTimeout should be at least 100ms to avoid premature timeouts"
         );
       }
@@ -168,7 +187,8 @@ class ConfigManager {
       config.maxPropDepth !== undefined &&
       (config.maxPropDepth < 0 || config.maxPropDepth > 10)
     ) {
-      console.warn(
+      this.warnOnce(
+        "maxPropDepth-out-of-range",
         "[quzz] maxPropDepth should be between 0 and 10 for optimal performance"
       );
     }
@@ -185,7 +205,8 @@ class ConfigManager {
 
     // Warn about production usage
     if (config.forceEnable && process.env.NODE_ENV === "production") {
-      console.warn(
+      this.warnOnce(
+        "production-enabled",
         "[quzz] Warning: Tracing is force-enabled in production. This may impact performance."
       );
     }
