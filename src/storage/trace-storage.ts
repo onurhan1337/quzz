@@ -1,0 +1,183 @@
+import type { TraceMetadata } from "../types";
+import { BaseAsyncStorage, type StorageOptions } from "./base";
+
+export interface TraceContext {
+  traceStack: string[];
+  traceMap: Map<string, TraceMetadata>;
+  contextId: string;
+  createdAt: number;
+}
+
+export interface TraceStorageOptions extends StorageOptions {
+  maxStackDepth?: number;
+  maxMapSize?: number;
+  cleanupThreshold?: number;
+}
+
+export class TraceStorage extends BaseAsyncStorage<TraceContext> {
+  private readonly maxStackDepth: number;
+  private readonly maxMapSize: number;
+  private readonly cleanupThreshold: number;
+
+  constructor(options: TraceStorageOptions = { name: "trace-storage" }) {
+    super(options);
+    this.maxStackDepth = options.maxStackDepth ?? 100;
+    this.maxMapSize = options.maxMapSize ?? 1000;
+    this.cleanupThreshold = options.cleanupThreshold ?? 100;
+  }
+
+  protected createDefaultStore(): TraceContext {
+    return {
+      traceStack: [],
+      traceMap: new Map(),
+      contextId: this.generateContextId(),
+      createdAt: Date.now(),
+    };
+  }
+
+  protected validateStore(store: unknown): store is TraceContext {
+    if (!store || typeof store !== "object") return false;
+
+    const s = store as Record<string, unknown>;
+    return (
+      Array.isArray(s.traceStack) &&
+      s.traceMap instanceof Map &&
+      typeof s.contextId === "string" &&
+      typeof s.createdAt === "number"
+    );
+  }
+
+  startTrace(metadata: TraceMetadata): void {
+    const context = this.getOrCreateContext();
+    if (!context) return;
+
+    if (context.traceStack.length >= this.maxStackDepth) {
+      this.logError(`Trace stack depth exceeded (${this.maxStackDepth})`);
+      return;
+    }
+
+    context.traceMap.set(metadata.traceId, metadata);
+    context.traceStack.push(metadata.traceId);
+
+    if (context.traceMap.size > this.maxMapSize) {
+      this.performCleanup(context);
+    }
+  }
+
+  endTrace(traceId: string): void {
+    const context = this.getStore();
+    if (!context) return;
+
+    const index = context.traceStack.indexOf(traceId);
+    if (index !== -1) {
+      context.traceStack.splice(index, 1);
+    }
+
+    if (
+      context.traceStack.length === 0 &&
+      context.traceMap.size > this.cleanupThreshold
+    ) {
+      this.performCleanup(context);
+    }
+  }
+
+  updateTrace(traceId: string, updates: Partial<TraceMetadata>): void {
+    const context = this.getStore();
+    if (!context) return;
+
+    const existing = context.traceMap.get(traceId);
+    if (existing) {
+      context.traceMap.set(traceId, { ...existing, ...updates });
+    }
+  }
+
+  getTrace(traceId: string): TraceMetadata | undefined {
+    const context = this.getStore();
+    return context?.traceMap.get(traceId);
+  }
+
+  getCurrentParentId(): string | undefined {
+    const context = this.getStore();
+    if (!context) return undefined;
+    return context.traceStack[context.traceStack.length - 1];
+  }
+
+  getTraceHierarchy(): string[] {
+    const context = this.getStore();
+    return context ? [...context.traceStack] : [];
+  }
+
+  getContextInfo(): {
+    contextId: string;
+    createdAt: number;
+    stackDepth: number;
+    mapSize: number;
+  } | null {
+    const context = this.getStore();
+    if (!context) return null;
+
+    return {
+      contextId: context.contextId,
+      createdAt: context.createdAt,
+      stackDepth: context.traceStack.length,
+      mapSize: context.traceMap.size,
+    };
+  }
+
+  clearContext(): void {
+    const context = this.getStore();
+    if (!context) return;
+
+    context.traceStack = [];
+    context.traceMap.clear();
+  }
+
+  runInNewContext<R>(callback: () => R): R {
+    const newContext = this.createDefaultStore();
+    return this.run(newContext, callback);
+  }
+
+  private getOrCreateContext(): TraceContext | undefined {
+    let context = this.getStore();
+    if (!context) {
+      context = this.createDefaultStore();
+      this.enterWith(context);
+    }
+    return context;
+  }
+
+  private performCleanup(context: TraceContext): void {
+    const activeTraces = new Set(context.traceStack);
+    const tracesToKeep = Array.from(context.traceMap.keys())
+      .filter((id) => activeTraces.has(id))
+      .slice(-this.cleanupThreshold);
+
+    const newMap = new Map<string, TraceMetadata>();
+    tracesToKeep.forEach((id) => {
+      const trace = context.traceMap.get(id);
+      if (trace) newMap.set(id, trace);
+    });
+
+    context.traceMap = newMap;
+    this.logDebug(`Cleaned up trace map, kept ${newMap.size} traces`);
+  }
+
+  private generateContextId(): string {
+    return `ctx_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  }
+
+  getStats(): {
+    contexts: number;
+    totalTraces: number;
+    activeTraces: number;
+    metrics: ReturnType<BaseAsyncStorage<TraceContext>["getMetrics"]>;
+  } {
+    const context = this.getStore();
+    return {
+      contexts: context ? 1 : 0,
+      totalTraces: context?.traceMap.size ?? 0,
+      activeTraces: context?.traceStack.length ?? 0,
+      metrics: this.getMetrics(),
+    };
+  }
+}
