@@ -1,6 +1,12 @@
-import type { LogEntry, LogLevel, QuzzConfig, TraceMetadata, SerializedError } from './types'
-import { ConfigManager } from './config'
-import { getFormatter } from './formatters'
+import type {
+  LogEntry,
+  LogLevel,
+  QuzzConfig,
+  TraceMetadata,
+  SerializedError,
+} from "./types";
+import { ConfigManager } from "./config";
+import { getFormatter } from "./formatters";
 
 /**
  * Log level priorities for filtering
@@ -12,51 +18,51 @@ const LOG_LEVELS: Record<LogLevel, number> = {
   info: 3,
   debug: 4,
   trace: 5,
-}
+};
 
 /**
  * Throttle map for preventing log flooding
  */
-const throttleMap = new Map<string, number>()
+const throttleMap = new Map<string, number>();
 
 /**
  * Logger with transport support and throttling
  */
 class Logger {
-  private static instance: Logger
+  private static instance: Logger;
 
   private constructor() {}
 
   static getInstance(): Logger {
     if (!Logger.instance) {
-      Logger.instance = new Logger()
+      Logger.instance = new Logger();
     }
-    return Logger.instance
+    return Logger.instance;
   }
 
   /**
    * Check if log level should be output
    */
   private shouldLog(level: LogLevel, config: QuzzConfig): boolean {
-    const configLevel = config.logLevel || 'error'
-    return LOG_LEVELS[level] <= LOG_LEVELS[configLevel]
+    const configLevel = config.logLevel || "error";
+    return LOG_LEVELS[level] <= LOG_LEVELS[configLevel];
   }
 
   /**
    * Check throttling
    */
   private isThrottled(key: string, throttleMs: number): boolean {
-    if (throttleMs <= 0) return false
+    if (throttleMs <= 0) return false;
 
-    const now = Date.now()
-    const lastLog = throttleMap.get(key)
+    const now = Date.now();
+    const lastLog = throttleMap.get(key);
 
     if (lastLog && now - lastLog < throttleMs) {
-      return true
+      return true;
     }
 
-    throttleMap.set(key, now)
-    return false
+    throttleMap.set(key, now);
+    return false;
   }
 
   /**
@@ -78,7 +84,7 @@ class Logger {
       metadata,
       error,
       tags,
-    }
+    };
   }
 
   /**
@@ -86,19 +92,27 @@ class Logger {
    */
   private async outputLog(entry: LogEntry, config: QuzzConfig): Promise<void> {
     // Get formatter
-    const formatter = config.formatter || getFormatter(config.outputFormat || 'pretty')
-    const formatted = formatter(entry)
+    const formatter =
+      config.formatter || getFormatter(config.outputFormat || "pretty");
+    const formatted = formatter(entry);
 
     // Skip if formatter returns void/undefined
-    if (formatted === undefined) return
+    if (formatted === undefined) return;
 
     // Output to console
-    const consoleMethod = entry.level === 'error' ? console.error : entry.level === 'warn' ? console.warn : console.log
-    consoleMethod(formatted)
+    const consoleMethod =
+      entry.level === "error"
+        ? console.error
+        : entry.level === "warn"
+          ? console.warn
+          : console.log;
+    consoleMethod(formatted);
 
     // Send to custom transports
     if (config.transports && config.transports.length > 0) {
-      await Promise.allSettled(config.transports.map(transport => transport(entry, formatted)))
+      await Promise.allSettled(
+        config.transports.map((transport) => transport(entry, formatted))
+      );
     }
   }
 
@@ -113,22 +127,29 @@ class Logger {
     error?: SerializedError,
     tags?: string[]
   ): Promise<void> {
-    const config = ConfigManager.getInstance().getConfig()
+    const config = ConfigManager.getInstance().getConfig();
 
     // Check if should log based on level
     if (!this.shouldLog(level, config)) {
-      return
+      return;
     }
 
     // Check throttling
-    const throttleKey = `${componentName}:${level}:${message}`
+    const throttleKey = `${componentName}:${level}:${message}`;
     if (this.isThrottled(throttleKey, config.throttleMs || 0)) {
-      return
+      return;
     }
 
     // Create and output log entry
-    const entry = this.createLogEntry(level, componentName, message, metadata, error, tags)
-    await this.outputLog(entry, config)
+    const entry = this.createLogEntry(
+      level,
+      componentName,
+      message,
+      metadata,
+      error,
+      tags
+    );
+    await this.outputLog(entry, config);
   }
 
   /**
@@ -141,7 +162,7 @@ class Logger {
     error?: SerializedError,
     tags?: string[]
   ): Promise<void> {
-    await this.log('error', componentName, message, metadata, error, tags)
+    await this.log("error", componentName, message, metadata, error, tags);
   }
 
   async warn(
@@ -151,27 +172,42 @@ class Logger {
     error?: SerializedError,
     tags?: string[]
   ): Promise<void> {
-    await this.log('warn', componentName, message, metadata, error, tags)
+    await this.log("warn", componentName, message, metadata, error, tags);
   }
 
-  async info(componentName: string, message: string, metadata?: TraceMetadata, tags?: string[]): Promise<void> {
-    await this.log('info', componentName, message, metadata, undefined, tags)
+  async info(
+    componentName: string,
+    message: string,
+    metadata?: TraceMetadata,
+    tags?: string[]
+  ): Promise<void> {
+    await this.log("info", componentName, message, metadata, undefined, tags);
   }
 
-  async debug(componentName: string, message: string, metadata?: TraceMetadata, tags?: string[]): Promise<void> {
-    await this.log('debug', componentName, message, metadata, undefined, tags)
+  async debug(
+    componentName: string,
+    message: string,
+    metadata?: TraceMetadata,
+    tags?: string[]
+  ): Promise<void> {
+    await this.log("debug", componentName, message, metadata, undefined, tags);
   }
 
-  async trace(componentName: string, message: string, metadata?: TraceMetadata, tags?: string[]): Promise<void> {
-    await this.log('trace', componentName, message, metadata, undefined, tags)
+  async trace(
+    componentName: string,
+    message: string,
+    metadata?: TraceMetadata,
+    tags?: string[]
+  ): Promise<void> {
+    await this.log("trace", componentName, message, metadata, undefined, tags);
   }
 
   /**
    * Clear throttle cache
    */
   clearThrottle(): void {
-    throttleMap.clear()
+    throttleMap.clear();
   }
 }
 
-export { Logger }
+export { Logger };

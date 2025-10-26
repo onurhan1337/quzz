@@ -10,6 +10,7 @@ import { ConfigManager } from "./config";
 import { TraceContext } from "./context";
 import { PerformanceMonitor } from "./performance";
 import { Logger } from "./logger";
+import { ContextManager } from "./storage/context-manager";
 
 // Re-export types and configuration
 export type {
@@ -75,6 +76,44 @@ export function clearMetrics() {
 }
 
 /**
+ * Get context snapshots for debugging
+ * @param storageName - Optional storage name to get snapshots from
+ * @returns Array of context snapshots
+ */
+export function getContextSnapshots(storageName?: string) {
+  const contextManager = ContextManager.getInstance();
+  return contextManager.getSnapshots(storageName);
+}
+
+/**
+ * Get the latest context snapshot
+ * @param storageName - Optional storage name to get snapshot from
+ * @returns Latest context snapshot or null
+ */
+export function getLatestSnapshot(storageName?: string) {
+  const contextManager = ContextManager.getInstance();
+  return contextManager.getLatestSnapshot(storageName);
+}
+
+/**
+ * Clear all context snapshots
+ * @param storageName - Optional storage name to clear snapshots from
+ */
+export function clearSnapshots(storageName?: string) {
+  const contextManager = ContextManager.getInstance();
+  contextManager.clearSnapshots(storageName);
+}
+
+/**
+ * Check if context snapshot is supported
+ * @returns true if AsyncLocalStorage.snapshot() is available
+ */
+export function isSnapshotSupported() {
+  const contextManager = ContextManager.getInstance();
+  return contextManager.isSnapshotSupported();
+}
+
+/**
  * Wraps a React Server Component with tracing capabilities
  * @param Component - The RSC to wrap
  * @param componentOptions - Optional configuration for this specific component
@@ -114,6 +153,13 @@ export function withRSCTrace<P extends object>(
     const perfMonitor = config.performance?.enabled
       ? PerformanceMonitor.getInstance()
       : null;
+    const contextManager =
+      config.enableSnapshots || config.verboseMode
+        ? ContextManager.getInstance({
+            enableSnapshots: true,
+            debugMode: config.debugContext,
+          })
+        : null;
 
     const executeComponent = async () => {
       const renderStartTime = performance.now();
@@ -131,11 +177,30 @@ export function withRSCTrace<P extends object>(
 
       if (config.debugContext) {
         const contextInfo = context?.getCurrentContext();
-        console.debug(`[quzz:component] Entering component "${componentName}"`, {
-          traceId,
-          parentTraceId,
-          context: contextInfo,
+        console.debug(
+          `[quzz:component] Entering component "${componentName}"`,
+          {
+            traceId,
+            parentTraceId,
+            context: contextInfo,
+          }
+        );
+      }
+
+      if (config.verboseMode && contextManager) {
+        const snapshot = contextManager.captureSnapshot({
+          label: `component-enter:${componentName}`,
+          maxSnapshots: 100,
         });
+        if (snapshot && config.debugContext) {
+          console.debug(
+            `[quzz:snapshot] Captured context snapshot for component "${componentName}"`,
+            {
+              timestamp: new Date(snapshot.timestamp).toISOString(),
+              stackDepth: snapshot.stackDepth,
+            }
+          );
+        }
       }
 
       if (context) {
@@ -226,10 +291,29 @@ export function withRSCTrace<P extends object>(
         );
 
         if (config.debugContext) {
-          console.debug(`[quzz:component] Exiting component "${componentName}"`, {
-            traceId,
-            duration: metadata.duration,
+          console.debug(
+            `[quzz:component] Exiting component "${componentName}"`,
+            {
+              traceId,
+              duration: metadata.duration,
+            }
+          );
+        }
+
+        if (config.verboseMode && contextManager) {
+          const snapshot = contextManager.captureSnapshot({
+            label: `component-exit:${componentName}`,
+            maxSnapshots: 100,
           });
+          if (snapshot && config.debugContext) {
+            console.debug(
+              `[quzz:snapshot] Captured exit snapshot for component "${componentName}"`,
+              {
+                timestamp: new Date(snapshot.timestamp).toISOString(),
+                duration: metadata.duration,
+              }
+            );
+          }
         }
 
         return result;
@@ -238,11 +322,31 @@ export function withRSCTrace<P extends object>(
         metadata.error = serializedError;
 
         if (config.debugContext) {
-          console.debug(`[quzz:component] Error in component "${componentName}"`, {
-            traceId,
-            error: serializedError,
-            context: context?.getCurrentContext(),
+          console.debug(
+            `[quzz:component] Error in component "${componentName}"`,
+            {
+              traceId,
+              error: serializedError,
+              context: context?.getCurrentContext(),
+            }
+          );
+        }
+
+        if (config.verboseMode && contextManager) {
+          const snapshot = contextManager.captureSnapshot({
+            label: `component-error:${componentName}`,
+            maxSnapshots: 100,
           });
+          if (snapshot && config.debugContext) {
+            console.debug(
+              `[quzz:snapshot] Captured error snapshot for component "${componentName}"`,
+              {
+                timestamp: new Date(snapshot.timestamp).toISOString(),
+                error: serializedError.message,
+                stackDepth: snapshot.stackDepth,
+              }
+            );
+          }
         }
 
         if (perfMonitor && !componentOptions.disable?.timing) {
