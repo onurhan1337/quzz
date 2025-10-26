@@ -31,6 +31,7 @@ export type {
   PropsConfig,
   VisualizerConfig,
   PropSerializationStrategy,
+  EnvConfig,
 } from "./types";
 
 export { VALID_LOG_LEVELS, VALID_OUTPUT_FORMATS } from "./types";
@@ -39,6 +40,11 @@ export type { SanitizePropsConfig } from "./utils";
 export { safeStringify } from "./utils";
 
 export { configure, getConfig, resetConfig } from "./config";
+export {
+  hasConfigFile,
+  getConfigFilePath,
+  loadConfigFromFileAsync,
+} from "./config-loader";
 export { PerformanceMonitor } from "./performance";
 export { TraceContext } from "./context";
 export { RSCBoundary } from "./boundary";
@@ -308,6 +314,22 @@ export function withRSCTrace<P extends object>(
                 undefined,
                 tags
               );
+
+              // Write heap snapshot if enabled
+              if (config.performance?.enableHeapSnapshots) {
+                const snapshotPath = perfMonitor.writeHeapSnapshot(
+                  componentName,
+                  config.performance
+                );
+                if (snapshotPath) {
+                  await logger.info(
+                    componentName,
+                    `Heap snapshot saved to: ${snapshotPath}`,
+                    metadata,
+                    tags
+                  );
+                }
+              }
             }
           }
         }
