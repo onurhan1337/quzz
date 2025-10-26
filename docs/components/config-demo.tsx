@@ -9,6 +9,8 @@ export function ConfigDemo() {
   const [logLevel, setLogLevel] = useState<LogLevel>("info");
   const [outputFormat, setOutputFormat] = useState<OutputFormat>("pretty");
   const [performanceEnabled, setPerformanceEnabled] = useState(true);
+  const [enableSnapshots, setEnableSnapshots] = useState(false);
+  const [verboseMode, setVerboseMode] = useState(false);
 
   // Track which parts of the code have changed
   const codeLines = useMemo(
@@ -41,9 +43,19 @@ export function ConfigDemo() {
         key: "contextTracking",
         dynamic: false,
       },
+      {
+        text: `  enableSnapshots: ${enableSnapshots},`,
+        key: "enableSnapshots",
+        dynamic: true,
+      },
+      {
+        text: `  verboseMode: ${verboseMode},`,
+        key: "verboseMode",
+        dynamic: true,
+      },
       { text: "})", key: "config-end", dynamic: false },
     ],
-    [logLevel, outputFormat, performanceEnabled]
+    [logLevel, outputFormat, performanceEnabled, enableSnapshots, verboseMode]
   );
 
   const generateOutputPreview = () => {
@@ -67,6 +79,10 @@ export function ConfigDemo() {
 
     if (performanceEnabled) {
       output += `\nMemory: 45.2 MB`;
+    }
+
+    if (verboseMode && enableSnapshots) {
+      output += `\n[quzz:snapshot] Captured context snapshot "component-enter:UserProfile"`;
     }
 
     return output;
@@ -141,6 +157,42 @@ export function ConfigDemo() {
                 />
                 <span className="text-sm text-gray-700">
                   {performanceEnabled ? "Enabled" : "Disabled"}
+                </span>
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-3">
+                Context Snapshots{" "}
+                <span className="text-xs text-muted-foreground">(v0.3.0)</span>
+              </label>
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={enableSnapshots}
+                  onChange={() => setEnableSnapshots(!enableSnapshots)}
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
+                <span className="text-sm text-gray-700">
+                  {enableSnapshots ? "Enabled" : "Disabled"}
+                </span>
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-3">
+                Verbose Mode{" "}
+                <span className="text-xs text-muted-foreground">(v0.3.0)</span>
+              </label>
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={verboseMode}
+                  onChange={() => setVerboseMode(!verboseMode)}
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
+                <span className="text-sm text-gray-700">
+                  {verboseMode ? "Enabled" : "Disabled"}
                 </span>
               </label>
             </div>
