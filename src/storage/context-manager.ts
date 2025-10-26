@@ -1,8 +1,11 @@
 import type { TraceMetadata, QuzzConfig } from "../types";
 import { TraceStorage, type TraceStorageOptions } from "./trace-storage";
-import { MemoryMetricsStorage, type MemoryMetricsOptions } from "./memory-metrics-storage";
+import {
+  MemoryMetricsStorage,
+  type MemoryMetricsOptions,
+} from "./memory-metrics-storage";
 import { BaseAsyncStorage } from "./base";
-import type { StorageMetrics } from "./types";
+import type { StorageMetrics, ContextSnapshot, SnapshotOptions } from "./types";
 
 export interface StorageInstance<T = unknown> {
   name: string;
@@ -24,6 +27,7 @@ export interface ContextManagerOptions {
   debugMode?: boolean;
   enableTracing?: boolean;
   enableMemoryMetrics?: boolean;
+  enableSnapshots?: boolean;
   traceOptions?: Partial<TraceStorageOptions>;
   memoryOptions?: Partial<MemoryMetricsOptions>;
 }
@@ -34,12 +38,14 @@ export class ContextManager {
   private static instance: ContextManager;
   private readonly storages: StorageMap = new Map();
   private readonly debugMode: boolean;
+  private readonly enableSnapshots: boolean;
 
   private traceStorage: TraceStorage | null = null;
   private memoryStorage: MemoryMetricsStorage | null = null;
 
   private constructor(options: ContextManagerOptions = {}) {
     this.debugMode = options.debugMode ?? false;
+    this.enableSnapshots = options.enableSnapshots ?? false;
 
     if (options.enableTracing !== false) {
       this.initializeTraceStorage(options.traceOptions);
@@ -60,7 +66,8 @@ export class ContextManager {
   static reset(): void {
     if (ContextManager.instance) {
       ContextManager.instance.dispose();
-      (ContextManager as unknown as { instance?: ContextManager }).instance = undefined;
+      (ContextManager as unknown as { instance?: ContextManager }).instance =
+        undefined;
     }
   }
 
@@ -74,7 +81,9 @@ export class ContextManager {
     this.registerStorage("trace", this.traceStorage, true);
   }
 
-  private initializeMemoryStorage(options?: Partial<MemoryMetricsOptions>): void {
+  private initializeMemoryStorage(
+    options?: Partial<MemoryMetricsOptions>
+  ): void {
     this.memoryStorage = new MemoryMetricsStorage({
       name: "memory-metrics",
       debugMode: this.debugMode,
@@ -84,7 +93,11 @@ export class ContextManager {
     this.registerStorage("memory", this.memoryStorage, true);
   }
 
-  registerStorage<T>(name: string, storage: BaseAsyncStorage<T>, enabled: boolean = true): void {
+  registerStorage<T>(
+    name: string,
+    storage: BaseAsyncStorage<T>,
+    enabled: boolean = true
+  ): void {
     if (this.storages.has(name)) {
       this.logWarning(`Storage '${name}' already registered, replacing`);
     }
@@ -111,7 +124,9 @@ export class ContextManager {
 
   getStorage<T>(name: string): BaseAsyncStorage<T> | undefined {
     const instance = this.storages.get(name);
-    return instance?.enabled ? (instance.storage as BaseAsyncStorage<T>) : undefined;
+    return instance?.enabled
+      ? (instance.storage as BaseAsyncStorage<T>)
+      : undefined;
   }
 
   enableStorage(name: string): boolean {
@@ -175,7 +190,9 @@ export class ContextManager {
     return this.memoryStorage?.getMemoryStats() ?? null;
   }
 
-  getMemoryTrend(windowSize?: number): ReturnType<MemoryMetricsStorage["getMemoryTrend"]> {
+  getMemoryTrend(
+    windowSize?: number
+  ): ReturnType<MemoryMetricsStorage["getMemoryTrend"]> {
     return this.memoryStorage?.getMemoryTrend(windowSize) ?? null;
   }
 
@@ -192,11 +209,7 @@ export class ContextManager {
     });
   }
 
-  runWithStorage<T, R>(
-    storageName: string,
-    context: T,
-    callback: () => R
-  ): R {
+  runWithStorage<T, R>(storageName: string, context: T, callback: () => R): R {
     const storage = this.getStorage<T>(storageName);
     if (!storage) {
       this.logWarning(`Storage '${storageName}' not found or disabled`);
@@ -204,6 +217,107 @@ export class ContextManager {
     }
 
     return storage.run(context, callback);
+  }
+
+  captureSnapshot(options?: SnapshotOptions): ContextSnapshot | null {
+    if (!this.traceStorage) {
+      this.logDebug("No trace storage available for snapshot");
+      return null;
+    }
+
+    return this.traceStorage.captureSnapshot(options);
+  }
+
+  captureAllSnapshots(): Record<string, ContextSnapshot | null> {
+    const snapshots: Record<string, ContextSnapshot | null> = {};
+
+    for (const [name, instance] of this.storages) {
+      if (instance.enabled) {
+        snapshots[name] = instance.storage.captureSnapshot({
+          label: `${name}-snapshot`,
+        });
+      }
+    }
+
+    return snapshots;
+  }
+
+  runWithSnapshot<R>(
+    callback: () => R,
+    options?: SnapshotOptions & { storageNames?: string[] }
+  ): R {
+    if (!this.enableSnapshots) {
+      return callback();
+    }
+
+    const storageNames = options?.storageNames || ["trace"];
+    const storages = storageNames
+      .map((name) => this.getStorage(name))
+      .filter(
+        (storage): storage is BaseAsyncStorage<unknown> => storage !== undefined
+      );
+
+    if (storages.length === 0) {
+      this.logDebug("No storages available for snapshot execution");
+      return callback();
+    }
+
+    const primaryStorage = storages[0];
+    return primaryStorage.runWithSnapshot(callback, options);
+  }
+
+  getSnapshots(storageName?: string): ReadonlyArray<ContextSnapshot> {
+    if (storageName) {
+      const storage = this.getStorage(storageName);
+      return storage?.getSnapshots() ?? [];
+    }
+
+    if (this.traceStorage) {
+      return this.traceStorage.getSnapshots();
+    }
+
+    return [];
+  }
+
+  getLatestSnapshot(storageName?: string): ContextSnapshot | null {
+    if (storageName) {
+      const storage = this.getStorage(storageName);
+      return storage?.getLatestSnapshot() ?? null;
+    }
+
+    if (this.traceStorage) {
+      return this.traceStorage.getLatestSnapshot();
+    }
+
+    return null;
+  }
+
+  clearSnapshots(storageName?: string): void {
+    if (storageName) {
+      const storage = this.getStorage(storageName);
+      storage?.clearSnapshots();
+    } else {
+      for (const instance of this.storages.values()) {
+        if (instance.enabled) {
+          instance.storage.clearSnapshots();
+        }
+      }
+    }
+
+    this.logDebug(
+      `Cleared snapshots${
+        storageName ? ` for ${storageName}` : " for all storages"
+      }`
+    );
+  }
+
+  isSnapshotSupported(storageName?: string): boolean {
+    if (storageName) {
+      const storage = this.getStorage(storageName);
+      return storage?.isSnapshotSupported() ?? false;
+    }
+
+    return this.traceStorage?.isSnapshotSupported() ?? false;
   }
 
   getAllStats(): Record<string, StorageStats> {
@@ -268,11 +382,16 @@ export class ContextManager {
 
   updateFromConfig(config: Partial<QuzzConfig>): void {
     if (config.debugContext !== undefined) {
-      (this as unknown as { debugMode: boolean }).debugMode = config.debugContext;
+      (this as unknown as { debugMode: boolean }).debugMode =
+        config.debugContext;
 
       for (const instance of this.storages.values()) {
-        if ('debugMode' in instance.storage) {
-          (instance.storage as BaseAsyncStorage<unknown> & { debugMode: boolean }).debugMode = config.debugContext;
+        if ("debugMode" in instance.storage) {
+          (
+            instance.storage as BaseAsyncStorage<unknown> & {
+              debugMode: boolean;
+            }
+          ).debugMode = config.debugContext;
         }
       }
     }

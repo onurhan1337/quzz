@@ -74,7 +74,7 @@ export class MemoryMetricsStorage extends BaseAsyncStorage<MemoryContext> {
     );
   }
 
-  captureSnapshot(): MemorySnapshot | null {
+  captureMemorySnapshot(): MemorySnapshot | null {
     if (typeof process === "undefined" || !process.memoryUsage) {
       return null;
     }
@@ -98,7 +98,7 @@ export class MemoryMetricsStorage extends BaseAsyncStorage<MemoryContext> {
     const context = this.getOrCreateContext();
     if (!context) return;
 
-    const currentSnapshot = snapshot || this.captureSnapshot();
+    const currentSnapshot = snapshot || this.captureMemorySnapshot();
     if (!currentSnapshot) return;
 
     if (!context.baselineMemory) {
@@ -107,7 +107,10 @@ export class MemoryMetricsStorage extends BaseAsyncStorage<MemoryContext> {
 
     context.snapshots.push(currentSnapshot);
 
-    if (!context.peakMemory || currentSnapshot.heapUsed > context.peakMemory.heapUsed) {
+    if (
+      !context.peakMemory ||
+      currentSnapshot.heapUsed > context.peakMemory.heapUsed
+    ) {
       context.peakMemory = currentSnapshot;
     }
 
@@ -118,7 +121,10 @@ export class MemoryMetricsStorage extends BaseAsyncStorage<MemoryContext> {
     this.detectMemoryLeaks(context, currentSnapshot);
   }
 
-  private detectMemoryLeaks(context: MemoryContext, snapshot: MemorySnapshot): void {
+  private detectMemoryLeaks(
+    context: MemoryContext,
+    snapshot: MemorySnapshot
+  ): void {
     if (!context.baselineMemory) return;
 
     const memoryGrowth = snapshot.heapUsed - context.baselineMemory.heapUsed;

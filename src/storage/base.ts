@@ -6,9 +6,16 @@ import type {
   StorageOptions,
   StorageMetrics,
   MutableStorageMetrics,
+  ContextSnapshot,
+  SnapshotOptions,
 } from "./types";
 
-export type { StorageOptions, StorageMetrics } from "./types";
+export type {
+  StorageOptions,
+  StorageMetrics,
+  ContextSnapshot,
+  SnapshotOptions,
+} from "./types";
 
 export abstract class BaseAsyncStorage<T> {
   protected readonly name: string;
@@ -17,6 +24,8 @@ export abstract class BaseAsyncStorage<T> {
   protected asyncLocalStorage: AsyncLocalStorageInstance<T> | null = null;
   protected fallbackStore: T | undefined;
   protected metrics: MutableStorageMetrics;
+  private snapshots: ContextSnapshot<T>[] = [];
+  private snapshotSupported = false;
 
   constructor(options: StorageOptions) {
     this.name = options.name;
@@ -48,6 +57,7 @@ export abstract class BaseAsyncStorage<T> {
       if (AsyncLocalStorageClass) {
         this.asyncLocalStorage = new AsyncLocalStorageClass<T>();
         this.verifyAsyncLocalStorage();
+        this.checkSnapshotSupport();
       }
     } catch (error) {
       this.logError("Failed to initialize AsyncLocalStorage", error);
@@ -92,6 +102,24 @@ export abstract class BaseAsyncStorage<T> {
       this.logError("AsyncLocalStorage verification failed", error);
       this.asyncLocalStorage = null;
       this.metrics.errors++;
+    }
+  }
+
+  private checkSnapshotSupport(): void {
+    if (!this.asyncLocalStorage || !isNodeVersionAtLeast(16, 12)) {
+      this.snapshotSupported = false;
+      return;
+    }
+
+    try {
+      if (typeof this.asyncLocalStorage.snapshot === "function") {
+        this.snapshotSupported = true;
+        this.logDebug("Context snapshot support detected");
+      } else {
+        this.snapshotSupported = false;
+      }
+    } catch {
+      this.snapshotSupported = false;
     }
   }
 
@@ -212,6 +240,136 @@ export abstract class BaseAsyncStorage<T> {
     return this.asyncLocalStorage !== null || this.enableFallback;
   }
 
+  captureSnapshot(options?: SnapshotOptions): ContextSnapshot<T> | null {
+    if (!this.isSnapshotSupported()) {
+      if (this.debugMode) {
+        this.logDebug("Snapshot not supported, capturing fallback state");
+      }
+      return this.captureFallbackSnapshot(options);
+    }
+
+    try {
+      const store = this.getStore();
+      const snapshot: ContextSnapshot<T> = {
+        timestamp: Date.now(),
+        store,
+        stackDepth: this.getStackDepth(),
+        label: options?.label,
+      };
+
+      if (options?.maxSnapshots) {
+        this.pruneSnapshots(options.maxSnapshots - 1);
+      }
+
+      this.snapshots.push(snapshot);
+      this.logDebug(
+        `Captured snapshot${options?.label ? ` "${options.label}"` : ""}`
+      );
+
+      return snapshot;
+    } catch (error) {
+      this.logError("Failed to capture snapshot", error);
+      this.metrics.errors++;
+      return null;
+    }
+  }
+
+  private captureFallbackSnapshot(
+    options?: SnapshotOptions
+  ): ContextSnapshot<T> | null {
+    const snapshot: ContextSnapshot<T> = {
+      timestamp: Date.now(),
+      store: this.fallbackStore,
+      stackDepth: 0,
+      label: options?.label,
+    };
+
+    if (options?.maxSnapshots) {
+      this.pruneSnapshots(options.maxSnapshots - 1);
+    }
+
+    this.snapshots.push(snapshot);
+    return snapshot;
+  }
+
+  createSnapshotRunner(): (<R>(callback: () => R) => R) | null {
+    if (!this.isSnapshotSupported() || !this.asyncLocalStorage?.snapshot) {
+      this.logDebug("Snapshot runner not available");
+      return null;
+    }
+
+    try {
+      return this.asyncLocalStorage.snapshot();
+    } catch (error) {
+      this.logError("Failed to create snapshot runner", error);
+      this.metrics.errors++;
+      return null;
+    }
+  }
+
+  runWithSnapshot<R>(callback: () => R, options?: SnapshotOptions): R {
+    if (options) {
+      this.captureSnapshot(options);
+    }
+
+    if (!this.isSnapshotSupported() || !this.asyncLocalStorage?.snapshot) {
+      this.logDebug("Running without snapshot isolation");
+      return callback();
+    }
+
+    try {
+      const runner = this.asyncLocalStorage.snapshot();
+      return runner(callback);
+    } catch (error) {
+      this.logError("Failed to run with snapshot", error);
+      this.metrics.errors++;
+      return callback();
+    }
+  }
+
+  getSnapshots(): ReadonlyArray<ContextSnapshot<T>> {
+    return [...this.snapshots];
+  }
+
+  getLatestSnapshot(): ContextSnapshot<T> | null {
+    return this.snapshots[this.snapshots.length - 1] || null;
+  }
+
+  clearSnapshots(): void {
+    this.snapshots = [];
+    this.logDebug("Cleared all snapshots");
+  }
+
+  private pruneSnapshots(maxToKeep: number): void {
+    if (this.snapshots.length > maxToKeep) {
+      const toRemove = this.snapshots.length - maxToKeep;
+      this.snapshots.splice(0, toRemove);
+      this.logDebug(`Pruned ${toRemove} old snapshots`);
+    }
+  }
+
+  private getStackDepth(): number {
+    if (!this.asyncLocalStorage) return 0;
+
+    let depth = 0;
+    let currentStore = this.getStore();
+
+    while (currentStore !== undefined) {
+      depth++;
+      if (depth > 100) break;
+
+      this.asyncLocalStorage.exit(() => {
+        currentStore = this.getStore();
+      });
+    }
+
+    return depth;
+  }
+
+  isSnapshotSupported(): boolean {
+    return this.snapshotSupported;
+  }
+
   protected logDebug(message: string, ...args: unknown[]): void {
     if (this.debugMode) {
       console.debug(`[quzz:${this.name}] ${message}`, ...args);
@@ -220,7 +378,8 @@ export abstract class BaseAsyncStorage<T> {
 
   protected logError(message: string, error?: unknown): void {
     if (this.debugMode) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       console.error(`[quzz:${this.name}] ${message}:`, errorMessage);
     }
   }

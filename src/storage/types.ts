@@ -8,6 +8,10 @@ export interface AsyncLocalStorageInstance<T> {
   run<R>(store: T, callback: (...args: unknown[]) => R, ...args: unknown[]): R;
   exit<R>(callback: (...args: unknown[]) => R, ...args: unknown[]): R;
   disable(): void;
+  snapshot?(): <R>(
+    callback: (...args: unknown[]) => R,
+    ...args: unknown[]
+  ) => R;
 }
 
 export interface AsyncLocalStorageConstructor {
@@ -47,4 +51,17 @@ export interface MutableStorageMetrics {
   misses: number;
   errors: number;
   lastAccess: number;
+}
+
+export interface ContextSnapshot<T = unknown> {
+  readonly timestamp: number;
+  readonly store: T | undefined;
+  readonly stackDepth: number;
+  readonly label?: string;
+}
+
+export interface SnapshotOptions {
+  readonly label?: string;
+  readonly includeStack?: boolean;
+  readonly maxSnapshots?: number;
 }

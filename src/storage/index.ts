@@ -33,4 +33,6 @@ export type {
   AsyncLocalStorageInstance,
   AsyncLocalStorageConstructor,
   AsyncHooksModule,
+  ContextSnapshot,
+  SnapshotOptions,
 } from "./types";
