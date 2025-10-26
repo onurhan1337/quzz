@@ -57,6 +57,43 @@ export interface PerformanceConfig {
 }
 
 /**
+ * Props logging configuration
+ */
+export interface PropsConfig {
+  /**
+   * Await Promise props before logging (Next.js 15+ async props support)
+   * WARNING: May trigger side effects (DB/network calls) or cause hangs
+   * @default false
+   */
+  awaitProps?: boolean;
+  /**
+   * Timeout for awaiting Promise props in milliseconds
+   * @default 5000
+   */
+  awaitTimeout?: number;
+  /**
+   * Show type hints for Promise props without awaiting them
+   * @default true
+   */
+  showPromiseTypes?: boolean;
+  /**
+   * Maximum array items to include before truncation
+   * @default 10
+   */
+  maxArrayItems?: number;
+  /**
+   * Maximum object properties to include before truncation
+   * @default 20
+   */
+  maxObjectProps?: number;
+  /**
+   * Maximum depth for error cause chain serialization
+   * @default 3
+   */
+  maxErrorDepth?: number;
+}
+
+/**
  * Visualizer configuration for trace collection
  */
 export interface VisualizerConfig {
@@ -104,8 +141,14 @@ export interface QuzzConfig {
   performance?: PerformanceConfig;
 
   /**
+   * Props logging configuration
+   */
+  props?: PropsConfig;
+
+  /**
    * Whether to log component props (sanitized for security)
    * @default false
+   * @deprecated Use props.awaitProps instead
    */
   logProps?: boolean;
 

@@ -25,6 +25,7 @@ quzz provides a simple HOC wrapper that gives you detailed logging during develo
 - **NEW**: Modular storage architecture with AsyncLocalStorage
 - **NEW**: Context snapshots for advanced debugging
 - **NEW**: Memory leak detection and tracking
+- **NEW**: Next.js 15+ async props support with Promise type hints
 - Optional: `<RSCBoundary>` component for fine-grained tracing
 - Optional: Built-in trace visualizer CLI (`quzz-viz`)
 - TypeScript support
@@ -77,11 +78,136 @@ if (process.env.NODE_ENV === "development") {
       enabled: true,
       warnThreshold: 500, // Warn if render takes > 500ms
     },
+    props: {
+      awaitProps: false, // Set to true for Next.js 15+ async props
+      showPromiseTypes: true, // Show Promise type hints
+    },
   });
 }
 ```
 
 ## Examples
+
+### Next.js 15+ Async Props Support
+
+Next.js 15 introduced async props like `params` and `searchParams` that appear as `[Promise]` in logs, making debugging difficult. quzz provides two solutions:
+
+#### Option 1: Promise Type Hints (Default, Safe)
+
+By default, quzz detects Promise props and displays type hints without awaiting them:
+
+```tsx
+import { withRSCTrace, configure } from "quzz";
+
+configure({
+  logLevel: "info",
+  logProps: true,
+  props: {
+    showPromiseTypes: true, // Default: true
+  },
+});
+
+async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const product = await fetchProduct(slug);
+  return <div>{product.name}</div>;
+}
+
+export default withRSCTrace(ProductPage);
+```
+
+**Output:**
+
+```
+ℹ️ [quzz] ProductPage rendered in 142ms
+Props: { params: [Promise<PageProps>] }
+```
+
+This approach is **safe** - no side effects, no performance impact.
+
+#### Option 2: Await Props (Opt-in, May Trigger Side Effects)
+
+For complete visibility, enable `awaitProps` to resolve Promise values before logging:
+
+```tsx
+import { configure } from "quzz";
+
+configure({
+  logLevel: "info",
+  logProps: true,
+  props: {
+    awaitProps: true, // CAUTION: May trigger side effects
+    awaitTimeout: 5000, // Timeout in ms (default: 5000)
+    showPromiseTypes: true,
+  },
+});
+```
+
+**Output with awaitProps enabled:**
+
+```
+ℹ️ [quzz] ProductPage rendered in 145ms
+Props: { params: { slug: "wireless-keyboard" } }
+```
+
+**⚠️ Important Warnings:**
+
+- **Side Effects**: Awaiting props may trigger database queries, network requests, or other side effects
+- **Performance**: Adds latency to resolve all Promises before logging
+- **Hanging Risk**: If a Promise never resolves, it will timeout (default: 5s)
+- **Error Handling**: Failed Promises show as `[Promise: Error - message]`
+
+**When to use awaitProps:**
+
+- ✅ Debugging specific issues with async props in development
+- ✅ Investigating what values are actually being passed
+- ❌ **NOT** in production (quzz is disabled by default anyway)
+- ❌ **NOT** as a default configuration (too risky)
+
+**Component-level override:**
+
+```tsx
+// Enable only for specific components
+const DebugPage = withRSCTrace(ProductPage, {
+  componentName: "ProductPage",
+  logProps: true,
+  props: {
+    awaitProps: true, // Enable just for this component
+  },
+});
+```
+
+#### Handling Errors and Timeouts
+
+When `awaitProps` is enabled, quzz handles Promise failures gracefully:
+
+```tsx
+async function BrokenPage({
+  params,
+  slowData,
+}: {
+  params: Promise<{ id: string }>;
+  slowData: Promise<string>;
+}) {
+  // params will fail to resolve
+  // slowData will timeout
+  return <div>Content</div>;
+}
+
+export default withRSCTrace(BrokenPage, {
+  props: { awaitProps: true, awaitTimeout: 1000 },
+});
+```
+
+**Output:**
+
+```
+ℹ️ [quzz] BrokenPage rendered in 1050ms
+Props: {
+  params: [Promise<PageProps>: Error - Promise rejection],
+  slowData: [Promise: Promise timeout after 1000ms]
+}
+```
 
 ### Track Slow Components
 
@@ -207,10 +333,14 @@ const userStorage = new UserContextStorage({ name: "user-context" });
 contextManager.registerStorage("user", userStorage);
 
 // Run with isolated context
-contextManager.runWithStorage("user", { userId: "123", permissions: ["read"] }, async () => {
-  // Your async operations have access to the user context
-  await processUserRequest();
-});
+contextManager.runWithStorage(
+  "user",
+  { userId: "123", permissions: ["read"] },
+  async () => {
+    // Your async operations have access to the user context
+    await processUserRequest();
+  }
+);
 ```
 
 #### Memory Leak Detection
@@ -256,7 +386,11 @@ configure({
 });
 
 // Manual snapshot capture
-import { getContextSnapshots, getLatestSnapshot, isSnapshotSupported } from "quzz";
+import {
+  getContextSnapshots,
+  getLatestSnapshot,
+  isSnapshotSupported,
+} from "quzz";
 
 // Check if your Node.js version supports snapshots
 if (isSnapshotSupported()) {
@@ -264,7 +398,7 @@ if (isSnapshotSupported()) {
 
   // Get all captured snapshots
   const snapshots = getContextSnapshots();
-  snapshots.forEach(snapshot => {
+  snapshots.forEach((snapshot) => {
     console.log(`Snapshot ${snapshot.label}:`, {
       timestamp: new Date(snapshot.timestamp).toISOString(),
       stackDepth: snapshot.stackDepth,
@@ -398,7 +532,14 @@ withRSCTrace(Component, {
 
   // Logging
   logLevel: "debug", // Override global level
-  logProps: true, // Log sanitized props
+  logProps: true, // Log sanitized props (deprecated, use props config)
+
+  // Props Configuration (Next.js 15+ async props support)
+  props: {
+    awaitProps: false, // Await Promise props before logging
+    awaitTimeout: 5000, // Timeout for awaiting (ms)
+    showPromiseTypes: true, // Show type hints for Promises
+  },
 
   // Performance
   performance: {
@@ -548,6 +689,59 @@ import { configure } from "quzz";
 configure({
   logLevel: "silent", // Disable logs in tests
   forceEnable: false,
+});
+```
+
+#### 7. "Props show [Promise] in Next.js 15+"
+
+**Problem**: Next.js 15 made `params` and `searchParams` async, appearing as `[Promise]` in logs.
+
+**Solution A** (Safe, Default): quzz automatically detects Promises and shows type hints:
+
+```tsx
+configure({
+  logProps: true,
+  props: {
+    showPromiseTypes: true, // Already enabled by default
+  },
+});
+// Output: Props: { params: [Promise<PageProps>] }
+```
+
+**Solution B** (Advanced): Enable `awaitProps` for full visibility (use with caution):
+
+```tsx
+configure({
+  logProps: true,
+  props: {
+    awaitProps: true, // ⚠️ May trigger side effects
+    awaitTimeout: 5000,
+  },
+});
+// Output: Props: { params: { slug: "product-123" } }
+```
+
+#### 8. "Props awaiting is hanging or slow"
+
+**Solution**: Reduce timeout or disable awaitProps:
+
+```tsx
+configure({
+  props: {
+    awaitProps: false, // Disable awaiting
+    showPromiseTypes: true, // Still show type hints
+  },
+});
+```
+
+Or adjust timeout per component:
+
+```tsx
+withRSCTrace(SlowComponent, {
+  props: {
+    awaitProps: true,
+    awaitTimeout: 1000, // Shorter timeout
+  },
 });
 ```
 

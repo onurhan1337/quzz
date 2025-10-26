@@ -18,6 +18,14 @@ const DEFAULT_CONFIG: Required<
     trackMemory: false,
     aggregate: false,
   },
+  props: {
+    awaitProps: false,
+    awaitTimeout: 5000,
+    showPromiseTypes: true,
+    maxArrayItems: 10,
+    maxObjectProps: 20,
+    maxErrorDepth: 3,
+  },
   logProps: false,
   forceEnable: false,
   maxPropDepth: 3,
@@ -89,6 +97,10 @@ class ConfigManager {
         ...DEFAULT_CONFIG.performance,
         ...config.performance,
       },
+      props: {
+        ...DEFAULT_CONFIG.props,
+        ...config.props,
+      },
       visualizer: {
         ...DEFAULT_CONFIG.visualizer,
         ...config.visualizer,
@@ -131,6 +143,23 @@ class ConfigManager {
         config.performance.warnThreshold < 0
       ) {
         console.warn("[quzz] Performance warnThreshold must be positive");
+      }
+    }
+
+    // Validate props config
+    if (config.props) {
+      if (config.props.awaitProps && config.logLevel !== "silent") {
+        console.warn(
+          "[quzz] Warning: awaitProps is enabled. This may trigger side effects (DB/network calls) or cause performance issues."
+        );
+      }
+      if (
+        config.props.awaitTimeout !== undefined &&
+        config.props.awaitTimeout < 100
+      ) {
+        console.warn(
+          "[quzz] Props awaitTimeout should be at least 100ms to avoid premature timeouts"
+        );
       }
     }
 
@@ -200,6 +229,11 @@ class ConfigManager {
         ...DEFAULT_CONFIG.performance,
         ...this.config.performance,
         ...componentOptions.performance,
+      },
+      props: {
+        ...DEFAULT_CONFIG.props,
+        ...this.config.props,
+        ...componentOptions.props,
       },
       visualizer: {
         ...DEFAULT_CONFIG.visualizer,
