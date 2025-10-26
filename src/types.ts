@@ -80,6 +80,17 @@ export interface PerformanceConfig {
    * @default false
    */
   aggregate?: boolean;
+  /**
+   * Enable perf mode with heap snapshots (dev-only)
+   * WARNING: Creates heap dump files on disk when memory threshold is exceeded
+   * @default false
+   */
+  enableHeapSnapshots?: boolean;
+  /**
+   * Directory to save heap snapshots
+   * @default './heap-snapshots'
+   */
+  heapSnapshotDir?: string;
 }
 
 /**
@@ -145,6 +156,17 @@ export interface VisualizerConfig {
    * @default './traces.json'
    */
   output?: string;
+}
+
+/**
+ * Environment variable configuration
+ * Supports: QUZZ_ENABLED, QUZZ_LOG_LEVEL, QUZZ_OUTPUT_FORMAT, QUZZ_FORCE_ENABLE
+ */
+export interface EnvConfig {
+  enabled?: boolean;
+  logLevel?: LogLevel;
+  outputFormat?: OutputFormat;
+  forceEnable?: boolean;
 }
 
 /**
@@ -275,6 +297,12 @@ export interface QuzzConfig {
    * @default false
    */
   suppressConfigWarnings?: boolean;
+
+  /**
+   * Enable terminal hyperlinks for trace IDs (OSC 8 escape sequences)
+   * @default true
+   */
+  enableHyperlinks?: boolean;
 }
 
 /**
