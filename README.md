@@ -22,6 +22,9 @@ quzz provides a simple HOC wrapper that gives you detailed logging during develo
 - Error tracking with full context
 - Props logging with automatic sensitive data redaction
 - Component hierarchy visualization
+- **NEW**: Modular storage architecture with AsyncLocalStorage
+- **NEW**: Context snapshots for advanced debugging
+- **NEW**: Memory leak detection and tracking
 - Optional: `<RSCBoundary>` component for fine-grained tracing
 - Optional: Built-in trace visualizer CLI (`quzz-viz`)
 - TypeScript support
@@ -171,6 +174,146 @@ export async function GET() {
 ```
 
 ## Advanced Features
+
+### Modular Storage Architecture
+
+quzz v0.3.0 introduces a powerful modular storage system built on Node.js AsyncLocalStorage, providing isolated context tracking across async boundaries:
+
+```typescript
+import { ContextManager } from "quzz/storage";
+
+// Initialize with custom storage configuration
+const contextManager = ContextManager.getInstance({
+  enableTracing: true,
+  enableMemoryMetrics: true,
+  debugMode: true,
+});
+
+// Register custom storage for your application state
+import { BaseAsyncStorage } from "quzz/storage";
+
+class UserContextStorage extends BaseAsyncStorage<UserContext> {
+  protected createDefaultStore() {
+    return { userId: null, permissions: [] };
+  }
+
+  protected validateStore(store: unknown): store is UserContext {
+    return typeof store === "object" && store !== null;
+  }
+}
+
+// Register and use custom storage
+const userStorage = new UserContextStorage({ name: "user-context" });
+contextManager.registerStorage("user", userStorage);
+
+// Run with isolated context
+contextManager.runWithStorage("user", { userId: "123", permissions: ["read"] }, async () => {
+  // Your async operations have access to the user context
+  await processUserRequest();
+});
+```
+
+#### Memory Leak Detection
+
+Monitor and detect memory leaks in your React Server Components:
+
+```typescript
+configure({
+  performance: {
+    enabled: true,
+    trackMemory: true, // Enable memory tracking
+  },
+});
+
+// Monitor memory usage
+import { ContextManager } from "quzz/storage";
+
+const manager = ContextManager.getInstance({
+  enableMemoryMetrics: true,
+});
+
+// Get memory statistics
+const memoryStats = manager.getMemoryStats();
+if (memoryStats?.leakDetected) {
+  console.warn("Memory leak detected:", memoryStats.growth);
+}
+
+// Get memory trend over time
+const trend = manager.getMemoryTrend(10); // Last 10 snapshots
+console.log("Memory trend:", trend);
+```
+
+### Context Snapshots for Debugging
+
+Debug complex async flows with context snapshots (requires Node.js 16.12+):
+
+```typescript
+// Enable verbose mode with snapshots
+configure({
+  debugContext: true,
+  enableSnapshots: true,
+  verboseMode: true, // Automatically captures snapshots at key points
+});
+
+// Manual snapshot capture
+import { getContextSnapshots, getLatestSnapshot, isSnapshotSupported } from "quzz";
+
+// Check if your Node.js version supports snapshots
+if (isSnapshotSupported()) {
+  // Your component execution...
+
+  // Get all captured snapshots
+  const snapshots = getContextSnapshots();
+  snapshots.forEach(snapshot => {
+    console.log(`Snapshot ${snapshot.label}:`, {
+      timestamp: new Date(snapshot.timestamp).toISOString(),
+      stackDepth: snapshot.stackDepth,
+      context: snapshot.store,
+    });
+  });
+
+  // Get the latest snapshot for debugging
+  const latest = getLatestSnapshot();
+  if (latest) {
+    console.log("Latest context state:", latest);
+  }
+}
+```
+
+#### Snapshot Integration Example
+
+```tsx
+import { withRSCTrace, RSCBoundary } from "quzz";
+
+// Snapshots are automatically captured in verbose mode
+const DataProcessor = withRSCTrace(
+  async function DataProcessor({ data }) {
+    // Snapshot captured on entry: "component-enter:DataProcessor"
+
+    try {
+      const result = await processData(data);
+      // Snapshot captured on exit: "component-exit:DataProcessor"
+      return <Result data={result} />;
+    } catch (error) {
+      // Snapshot captured on error: "component-error:DataProcessor"
+      throw error;
+    }
+  },
+  {
+    componentName: "DataProcessor",
+  }
+);
+
+// Using with RSCBoundary
+export default async function Dashboard() {
+  return (
+    <RSCBoundary label="dashboard" verboseMode={true}>
+      {/* Snapshots captured: boundary-enter, boundary-exit, or boundary-error */}
+      <DataProcessor data={userData} />
+    </RSCBoundary>
+  );
+}
+```
 
 ### RSCBoundary Component
 
@@ -480,14 +623,67 @@ Export all metrics as JSON string.
 
 Clear all collected performance metrics.
 
+### Context Snapshot Functions
+
+#### `getContextSnapshots(storageName?)`
+
+Get all captured context snapshots for debugging.
+
+#### `getLatestSnapshot(storageName?)`
+
+Get the most recent context snapshot.
+
+#### `clearSnapshots(storageName?)`
+
+Clear all captured snapshots.
+
+#### `isSnapshotSupported()`
+
+Check if AsyncLocalStorage.snapshot() is available (Node.js 16.12+).
+
+### Storage Management
+
+#### `ContextManager.getInstance(options?)`
+
+Get the singleton context manager instance.
+
+#### `contextManager.registerStorage(name, storage, enabled?)`
+
+Register a custom storage instance.
+
+#### `contextManager.runWithStorage(name, context, callback)`
+
+Execute code with isolated storage context.
+
+#### `contextManager.getMemoryStats()`
+
+Get current memory usage statistics.
+
+#### `contextManager.getMemoryTrend(windowSize?)`
+
+Get memory usage trend over time.
+
 ## Architecture
 
-quzz uses a singleton pattern with four core subsystems:
+quzz v0.3.0 features a modular architecture with enhanced storage capabilities:
 
-1. **ConfigManager**: Global configuration with validation
-2. **TraceContext**: Request-isolated component hierarchy tracking (via AsyncLocalStorage)
-3. **PerformanceMonitor**: Metrics aggregation with automatic memory management
-4. **Logger**: Multi-level, multi-format logging with transport support
+1. **ConfigManager**: Global configuration with validation and runtime updates
+2. **ContextManager**: Centralized storage orchestration with pluggable storage modules
+3. **Storage Modules**:
+   - **TraceStorage**: Request-isolated component hierarchy tracking
+   - **MemoryMetricsStorage**: Memory usage monitoring and leak detection
+   - **BaseAsyncStorage**: Abstract base for custom storage implementations
+4. **TraceContext**: Legacy compatibility layer (delegates to ContextManager)
+5. **PerformanceMonitor**: Metrics aggregation with automatic memory management
+6. **Logger**: Multi-level, multi-format logging with transport support
+
+### Storage Architecture Benefits
+
+- **Isolation**: Each async context maintains isolated state
+- **Extensibility**: Easy to add custom storage modules
+- **Performance**: Optimized with Node.js AsyncLocalStorage
+- **Debugging**: Context snapshots for complex flow analysis
+- **Compatibility**: Fallback support for older Node.js versions
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed design documentation.
 
