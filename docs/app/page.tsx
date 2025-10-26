@@ -14,6 +14,11 @@ import {
   Settings,
   Database,
   Camera,
+  FileCode,
+  Terminal,
+  Link,
+  MemoryStick,
+  Globe,
 } from "lucide-react";
 
 export default function Home() {
@@ -77,7 +82,7 @@ export const UserProfile = withRSCTrace(
 
       <FeatureExample
         title="Zero config. Maximum power."
-        description="Works out of the box, but when you need to go deeper - customize everything. Log levels, performance budgets, custom formatters. You name it."
+        description="Works out of the box, but when you need to go deeper - customize everything. File-based config, log levels, performance budgets, custom formatters. You name it."
         language="typescript"
         lightTheme="github-light"
         darkTheme="vesper"
@@ -101,15 +106,16 @@ export const DetailedComponent = withRSCTrace(
   }
 )
 
-// Or configure globally
-import { configure } from 'quzz'
-
-configure({
+// Or use file-based config (NEW in v0.4.0!)
+// quzz.config.mjs
+export default {
   logLevel: 'info',
-  outputFormat: 'pretty',
-  performance: { enabled: true },
-  contextTracking: true
-})`}
+  outputFormat: 'compact', // Try the new compact format!
+  performance: { enabled: true, enableHeapSnapshots: true },
+  enableHyperlinks: true,
+  componentFilter: /^(Blog|Product)/
+}
+// Config auto-loads - no code changes needed! ✨`}
       />
 
       <Separator />
@@ -164,15 +170,14 @@ configure({
         <div className="max-w-[900px] mx-auto px-4 relative">
           <div className="max-w-[780px] mx-auto mb-12">
             <h2 className="text-4xl text-center tracking-tight mb-4">
-              <span className="bg-gradient-to-r from-neutral-300 to-zinc-300 bg-clip-text text-transparent">
-                v0.3.0
+              <span className="bg-gradient-to-r from-orange-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
+                v0.4.0
               </span>{" "}
-              Modular Storage & Snapshots
+              File-Based Config & More
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground text-center">
-              Simple state management for React Server Components.
-              Request-isolated storage, context snapshots, and memory leak
-              detection built-in.
+              Next.js-style configuration, compact output format, terminal
+              hyperlinks, heap snapshots, and environment variables.
             </p>
           </div>
 
@@ -197,6 +202,92 @@ configure({
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* v0.4.0 Features */}
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <div className="relative">
+                <div className="mb-4 w-12 h-12 rounded-none bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <FileCode className="w-6 h-6 text-blue-500" />
+                </div>
+                <h3 className="text-xl mb-2">File-based config</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-blue-500/10 text-blue-500 rounded mb-1">
+                    NEW
+                  </span>{" "}
+                  Next.js-style quzz.config.mjs. Auto-loads, type-safe, zero
+                  code changes needed.
+                </p>
+              </div>
+            </div>
+
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <div className="relative">
+                <div className="mb-4 w-12 h-12 rounded-none bg-emerald-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Terminal className="w-6 h-6 text-emerald-500" />
+                </div>
+                <h3 className="text-xl mb-2">Compact output</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-emerald-500/10 text-emerald-500 rounded mb-1">
+                    NEW
+                  </span>{" "}
+                  Single-line logs with colors. Perfect for high-frequency
+                  renders.
+                </p>
+              </div>
+            </div>
+
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <div className="relative">
+                <div className="mb-4 w-12 h-12 rounded-none bg-violet-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Link className="w-6 h-6 text-violet-500" />
+                </div>
+                <h3 className="text-xl mb-2">Terminal hyperlinks</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-violet-500/10 text-violet-500 rounded mb-1">
+                    NEW
+                  </span>{" "}
+                  Clickable trace IDs with OSC 8. Works in iTerm2, VS Code, and
+                  more.
+                </p>
+              </div>
+            </div>
+
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+              <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <div className="relative">
+                <div className="mb-4 w-12 h-12 rounded-none bg-rose-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <MemoryStick className="w-6 h-6 text-rose-500" />
+                </div>
+                <h3 className="text-xl mb-2">Heap snapshots</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-rose-500/10 text-rose-500 rounded mb-1">
+                    NEW
+                  </span>{" "}
+                  Auto-capture memory dumps on high usage. Analyze in Chrome
+                  DevTools.
+                </p>
+              </div>
+            </div>
+
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <div className="relative">
+                <div className="mb-4 w-12 h-12 rounded-none bg-amber-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Globe className="w-6 h-6 text-amber-500" />
+                </div>
+                <h3 className="text-xl mb-2">Environment vars</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-amber-500/10 text-amber-500 rounded mb-1">
+                    NEW
+                  </span>{" "}
+                  QUZZ_* env vars for CI/CD. Full control without code changes.
+                </p>
+              </div>
+            </div>
+
+            {/* Existing Features */}
             <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
               <div className="relative">
