@@ -16,21 +16,40 @@ quzz provides a simple HOC wrapper that gives you detailed logging during develo
 
 ## Features
 
-- Zero configuration required
+### Core Features
+
+- **File-based configuration** - `quzz.config.mjs` (like `next.config.mjs`)
+- **Compact output format** - Clean, single-line logs with colors
+- **Environment variable support** - `QUZZ_*` env vars for flexibility
+- **Terminal hyperlinks** - Clickable trace IDs (OSC 8)
+- **Heap snapshots** - Automatic memory debugging on high usage
+- Zero configuration required (but highly configurable)
 - Simple HOC (`withRSCTrace`) wrapper for components
+
+### Monitoring & Debugging
+
 - Automatic performance tracking with configurable thresholds
 - Error tracking with full context
 - Props logging with automatic sensitive data redaction
 - Component hierarchy visualization
-- **NEW**: Modular storage architecture with AsyncLocalStorage
-- **NEW**: Context snapshots for advanced debugging
-- **NEW**: Memory leak detection and tracking
+- Memory leak detection and tracking
+- **Next.js 15+ async props support** with Promise type hints
+- Context snapshots for advanced debugging
+
+### Developer Experience
+
 - Optional: `<RSCBoundary>` component for fine-grained tracing
 - Optional: Built-in trace visualizer CLI (`quzz-viz`)
-- TypeScript support
+- Full TypeScript support with type-safe config
 - Plugin system for custom integrations
+- Regex-based component filtering
+- Multiple output formats (pretty, compact, json)
+
+### Production Safety
+
 - Zero production overhead (automatically disabled in production)
 - Production-safe by default
+- Configurable via environment variables for CI/CD
 
 ## Installation
 
@@ -63,7 +82,47 @@ Memory: 45.2 MB
 
 ## Configuration
 
-Set global options in your root layout:
+### Option 1: File-Based Configuration (Recommended)
+
+Create a `quzz.config.mjs` file in your project root (similar to `next.config.mjs`):
+
+```typescript
+/** @type {import('quzz').QuzzConfig} */
+export default {
+  logLevel: "info",
+  outputFormat: "compact", // "pretty" | "compact" | "json"
+
+  performance: {
+    enabled: true,
+    warnThreshold: 500, // Warn if render > 500ms
+    trackMemory: true,
+    memoryThreshold: 50 * 1024 * 1024, // 50MB
+    enableHeapSnapshots: false, // Enable for memory debugging
+  },
+
+  props: {
+    showPromiseTypes: true, // Next.js 15+ Promise type hints
+    awaitProps: false, // Set to true to await Promises
+    maxArrayItems: 10,
+    maxObjectProps: 20,
+  },
+
+  // Component filtering with regex
+  componentFilter: /^(Blog|Product|Work)/,
+
+  // Security: redact sensitive keys
+  sensitiveKeys: ["apiKey", "secretToken"],
+
+  // Terminal hyperlinks (clickable trace IDs)
+  enableHyperlinks: true,
+};
+```
+
+**That's it!** Config is automatically loaded when quzz initializes. No code changes needed.
+
+### Option 2: Programmatic Configuration
+
+For runtime configuration, use `configure()`:
 
 ```tsx
 // app/layout.tsx
@@ -72,16 +131,164 @@ import { configure } from "quzz";
 if (process.env.NODE_ENV === "development") {
   configure({
     logLevel: "info",
-    outputFormat: "pretty",
+    outputFormat: "compact",
     performance: {
       enabled: true,
-      warnThreshold: 500, // Warn if render takes > 500ms
+      warnThreshold: 500,
     },
   });
 }
 ```
 
+### Option 3: Environment Variables
+
+Override any setting via environment variables:
+
+```bash
+# Enable/disable
+QUZZ_ENABLED=true
+QUZZ_DISABLE=true  # Complete disable (highest priority)
+
+# Configuration
+QUZZ_LOG_LEVEL=debug
+QUZZ_OUTPUT_FORMAT=compact
+QUZZ_FORCE_ENABLE=true  # Force enable in production (not recommended)
+
+# Features
+QUZZ_DISABLE_HYPERLINKS=true
+```
+
+### Configuration Priority
+
+Settings are merged in this order (highest priority last):
+
+1. **Defaults** (built-in)
+2. **quzz.config.mjs** (file-based)
+3. **Environment variables** (`QUZZ_*`)
+4. **configure()** (programmatic)
+
 ## Examples
+
+### Next.js 15+ Async Props Support
+
+Next.js 15 introduced async props like `params` and `searchParams` that appear as `[Promise]` in logs, making debugging difficult. quzz provides two solutions:
+
+#### Option 1: Promise Type Hints (Default, Safe)
+
+By default, quzz detects Promise props and displays type hints without awaiting them:
+
+```tsx
+import { withRSCTrace, configure } from "quzz";
+
+configure({
+  logLevel: "info",
+  logProps: true,
+  props: {
+    showPromiseTypes: true, // Default: true
+  },
+});
+
+async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const product = await fetchProduct(slug);
+  return <div>{product.name}</div>;
+}
+
+export default withRSCTrace(ProductPage);
+```
+
+**Output:**
+
+```
+ℹ️ [quzz] ProductPage rendered in 142ms
+Props: { params: [Promise<PageProps>] }
+```
+
+This approach is **safe** - no side effects, no performance impact.
+
+#### Option 2: Await Props (Opt-in, May Trigger Side Effects)
+
+For complete visibility, enable `awaitProps` to resolve Promise values before logging:
+
+```tsx
+import { configure } from "quzz";
+
+configure({
+  logLevel: "info",
+  logProps: true,
+  props: {
+    awaitProps: true, // CAUTION: May trigger side effects
+    awaitTimeout: 5000, // Timeout in ms (default: 5000)
+    showPromiseTypes: true,
+  },
+});
+```
+
+**Output with awaitProps enabled:**
+
+```
+ℹ️ [quzz] ProductPage rendered in 145ms
+Props: { params: { slug: "wireless-keyboard" } }
+```
+
+**⚠️ Important Warnings:**
+
+- **Side Effects**: Awaiting props may trigger database queries, network requests, or other side effects
+- **Performance**: Adds latency to resolve all Promises before logging
+- **Hanging Risk**: If a Promise never resolves, it will timeout (default: 5s)
+- **Error Handling**: Failed Promises show as `[Promise: Error - message]`
+
+**When to use awaitProps:**
+
+- ✅ Debugging specific issues with async props in development
+- ✅ Investigating what values are actually being passed
+- ❌ **NOT** in production (quzz is disabled by default anyway)
+- ❌ **NOT** as a default configuration (too risky)
+
+**Component-level override:**
+
+```tsx
+// Enable only for specific components
+const DebugPage = withRSCTrace(ProductPage, {
+  componentName: "ProductPage",
+  logProps: true,
+  props: {
+    awaitProps: true, // Enable just for this component
+  },
+});
+```
+
+#### Handling Errors and Timeouts
+
+When `awaitProps` is enabled, quzz handles Promise failures gracefully:
+
+```tsx
+async function BrokenPage({
+  params,
+  slowData,
+}: {
+  params: Promise<{ id: string }>;
+  slowData: Promise<string>;
+}) {
+  // params will fail to resolve
+  // slowData will timeout
+  return <div>Content</div>;
+}
+
+export default withRSCTrace(BrokenPage, {
+  props: { awaitProps: true, awaitTimeout: 1000 },
+});
+```
+
+**Output:**
+
+```
+ℹ️ [quzz] BrokenPage rendered in 1050ms
+Props: {
+  params: [Promise<PageProps>: Error - Promise rejection],
+  slowData: [Promise: Promise timeout after 1000ms]
+}
+```
 
 ### Track Slow Components
 
@@ -173,6 +380,109 @@ export async function GET() {
 }
 ```
 
+## New in v0.4.0
+
+### 1. Compact Output Format
+
+Clean, single-line logs perfect for high-frequency renders:
+
+```bash
+BlogDetailPage: 4.79ms (620MB) ✓
+ProductPage: 124.32ms (45MB) ⚠
+ErrorComponent: 532.11ms ✗ Database connection failed
+```
+
+**Configuration:**
+
+```typescript
+export default {
+  outputFormat: "compact", // "pretty" | "compact" | "json"
+};
+```
+
+### 2. Terminal Hyperlinks
+
+Clickable trace IDs in supported terminals (iTerm2, VS Code, GNOME Terminal, Hyper):
+
+```
+Trace: trace_abc123 (clickable: cmd+click to navigate)
+↳ Parent: trace_xyz789 (clickable)
+```
+
+Uses OSC 8 escape sequences with graceful fallback for unsupported terminals.
+
+**Disable if needed:**
+
+```bash
+QUZZ_DISABLE_HYPERLINKS=true
+```
+
+### 3. Heap Snapshots (Memory Debugging)
+
+Automatically capture heap snapshots when memory usage spikes:
+
+```typescript
+export default {
+  performance: {
+    enabled: true,
+    trackMemory: true,
+    memoryThreshold: 50 * 1024 * 1024, // 50MB
+    enableHeapSnapshots: true,
+    heapSnapshotDir: "./heap-snapshots",
+  },
+};
+```
+
+**How it works:**
+
+1. Component renders with high memory delta (>50MB)
+2. Warning logged: `High memory usage detected: +52.34MB`
+3. Heap snapshot automatically saved: `heap-ComponentName-2025-10-27.heapsnapshot`
+4. Analyze in Chrome DevTools → Memory tab → Load snapshot
+
+**Safety:**
+
+- ✅ Dev-only (disabled in production)
+- ✅ Requires explicit `enableHeapSnapshots: true`
+- ✅ Warns about disk usage
+
+### 4. Environment Variable Support
+
+Full CI/CD integration with environment variables:
+
+```bash
+# Development
+QUZZ_LOG_LEVEL=debug QUZZ_OUTPUT_FORMAT=compact npm run dev
+
+# CI/CD
+QUZZ_ENABLED=true QUZZ_OUTPUT_FORMAT=json npm test
+
+# Production debugging (use with caution)
+QUZZ_FORCE_ENABLE=true QUZZ_LOG_LEVEL=error npm start
+```
+
+**Supported variables:**
+
+- `QUZZ_ENABLED` - Enable/disable tracing
+- `QUZZ_DISABLE` - Complete disable (highest priority)
+- `QUZZ_LOG_LEVEL` - Set log level
+- `QUZZ_OUTPUT_FORMAT` - Set output format
+- `QUZZ_FORCE_ENABLE` - Force enable in production
+- `QUZZ_DISABLE_HYPERLINKS` - Disable terminal hyperlinks
+
+### 5. Component Filtering
+
+Already existed but now better documented - filter traces with regex:
+
+```typescript
+export default {
+  // Only trace components matching pattern
+  componentFilter: /^(Blog|Product|Work)/,
+};
+```
+
+Perfect for focusing on specific parts of your app during debugging.
+
 ## Advanced Features
 
 ### Modular Storage Architecture
@@ -207,10 +517,14 @@ const userStorage = new UserContextStorage({ name: "user-context" });
 contextManager.registerStorage("user", userStorage);
 
 // Run with isolated context
-contextManager.runWithStorage("user", { userId: "123", permissions: ["read"] }, async () => {
-  // Your async operations have access to the user context
-  await processUserRequest();
-});
+contextManager.runWithStorage(
+  "user",
+  { userId: "123", permissions: ["read"] },
+  async () => {
+    // Your async operations have access to the user context
+    await processUserRequest();
+  }
+);
 ```
 
 #### Memory Leak Detection
@@ -256,7 +570,11 @@ configure({
 });
 
 // Manual snapshot capture
-import { getContextSnapshots, getLatestSnapshot, isSnapshotSupported } from "quzz";
+import {
+  getContextSnapshots,
+  getLatestSnapshot,
+  isSnapshotSupported,
+} from "quzz";
 
 // Check if your Node.js version supports snapshots
 if (isSnapshotSupported()) {
@@ -264,7 +582,7 @@ if (isSnapshotSupported()) {
 
   // Get all captured snapshots
   const snapshots = getContextSnapshots();
-  snapshots.forEach(snapshot => {
+  snapshots.forEach((snapshot) => {
     console.log(`Snapshot ${snapshot.label}:`, {
       timestamp: new Date(snapshot.timestamp).toISOString(),
       stackDepth: snapshot.stackDepth,
@@ -398,7 +716,14 @@ withRSCTrace(Component, {
 
   // Logging
   logLevel: "debug", // Override global level
-  logProps: true, // Log sanitized props
+  logProps: true, // Log sanitized props (deprecated, use props config)
+
+  // Props Configuration (Next.js 15+ async props support)
+  props: {
+    awaitProps: false, // Await Promise props before logging
+    awaitTimeout: 5000, // Timeout for awaiting (ms)
+    showPromiseTypes: true, // Show type hints for Promises
+  },
 
   // Performance
   performance: {
@@ -551,6 +876,59 @@ configure({
 });
 ```
 
+#### 7. "Props show [Promise] in Next.js 15+"
+
+**Problem**: Next.js 15 made `params` and `searchParams` async, appearing as `[Promise]` in logs.
+
+**Solution A** (Safe, Default): quzz automatically detects Promises and shows type hints:
+
+```tsx
+configure({
+  logProps: true,
+  props: {
+    showPromiseTypes: true, // Already enabled by default
+  },
+});
+// Output: Props: { params: [Promise<PageProps>] }
+```
+
+**Solution B** (Advanced): Enable `awaitProps` for full visibility (use with caution):
+
+```tsx
+configure({
+  logProps: true,
+  props: {
+    awaitProps: true, // ⚠️ May trigger side effects
+    awaitTimeout: 5000,
+  },
+});
+// Output: Props: { params: { slug: "product-123" } }
+```
+
+#### 8. "Props awaiting is hanging or slow"
+
+**Solution**: Reduce timeout or disable awaitProps:
+
+```tsx
+configure({
+  props: {
+    awaitProps: false, // Disable awaiting
+    showPromiseTypes: true, // Still show type hints
+  },
+});
+```
+
+Or adjust timeout per component:
+
+```tsx
+withRSCTrace(SlowComponent, {
+  props: {
+    awaitProps: true,
+    awaitTimeout: 1000, // Shorter timeout
+  },
+});
+```
+
 ### Performance Tips
 
 1. **Use Component Filtering**: Don't trace every component
@@ -622,6 +1000,42 @@ Export all metrics as JSON string.
 #### `clearMetrics()`
 
 Clear all collected performance metrics.
+
+### Configuration File Functions (v0.4.0)
+
+#### `hasConfigFile()`
+
+Check if a quzz config file exists in the project root.
+
+```typescript
+import { hasConfigFile } from "quzz";
+
+if (hasConfigFile()) {
+  console.log("Config file found");
+}
+```
+
+#### `getConfigFilePath()`
+
+Get the path to the active config file.
+
+```typescript
+import { getConfigFilePath } from "quzz";
+
+const path = getConfigFilePath();
+console.log(`Using config: ${path}`);
+// Output: Using config: /path/to/project/quzz.config.mjs
+```
+
+#### `loadConfigFromFileAsync()`
+
+Manually load configuration from file (async). Useful for advanced use cases.
+
+```typescript
+import { loadConfigFromFileAsync } from "quzz";
+
+const config = await loadConfigFromFileAsync();
+```
 
 ### Context Snapshot Functions
 

@@ -1,4 +1,7 @@
 import type { PerformanceMetrics, PerformanceConfig } from "./types";
+import { writeHeapSnapshot } from "v8";
+import { mkdirSync, existsSync } from "fs";
+import { join } from "path";
 
 /**
  * Performance monitor with metrics aggregation and automatic memory management
@@ -179,6 +182,78 @@ class PerformanceMonitor {
       };
     }
     return null;
+  }
+
+  /**
+   * Check if memory delta exceeds threshold
+   */
+  shouldWarnMemory(
+    memBefore: { heapUsed: number; heapTotal: number } | null,
+    memAfter: { heapUsed: number; heapTotal: number } | null,
+    config: PerformanceConfig
+  ): { exceeded: boolean; delta: number } {
+    if (!memBefore || !memAfter) {
+      return { exceeded: false, delta: 0 };
+    }
+
+    const delta = memAfter.heapUsed - memBefore.heapUsed;
+    const threshold = config.memoryThreshold ?? 50 * 1024 * 1024; // 50MB default
+
+    return {
+      exceeded: delta > threshold,
+      delta,
+    };
+  }
+
+  /**
+   * Write heap snapshot to disk (dev-only)
+   * WARNING: This creates large files on disk
+   */
+  writeHeapSnapshot(
+    componentName: string,
+    config: PerformanceConfig
+  ): string | null {
+    // Only allow in development mode
+    if (process.env.NODE_ENV === "production") {
+      console.warn(
+        "[quzz] Heap snapshots are disabled in production for safety"
+      );
+      return null;
+    }
+
+    if (!config.enableHeapSnapshots) {
+      return null;
+    }
+
+    try {
+      const dir = config.heapSnapshotDir || "./heap-snapshots";
+
+      // Create directory if it doesn't exist
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+
+      // Generate filename with timestamp and component name
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = join(
+        dir,
+        `heap-${componentName}-${timestamp}.heapsnapshot`
+      );
+
+      // Write heap snapshot
+      const result = writeHeapSnapshot(filename);
+
+      console.log(
+        `[quzz:perf] Heap snapshot saved: ${result}\n` +
+          `  Component: ${componentName}\n` +
+          `  File size: Check disk for ${filename}`
+      );
+
+      return result;
+    } catch (error) {
+      console.error("[quzz:perf] Failed to write heap snapshot:", error);
+      return null;
+    }
   }
 
   /**

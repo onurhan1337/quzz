@@ -74,6 +74,12 @@ export class ConfigValidator {
       warnings.push("Visualization collects all trace data in memory");
     }
 
+    if (config.performance?.enableHeapSnapshots) {
+      warnings.push(
+        "Heap snapshots create large files on disk and add overhead"
+      );
+    }
+
     return {
       valid: errors.length === 0,
       errors,

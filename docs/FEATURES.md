@@ -1,17 +1,279 @@
 # quzz Feature Guide
 
-## Version 0.3.0 Features
+## Version 0.4.0 Features
 
-This guide covers all the powerful features available in quzz v0.3.0, including the new modular storage architecture and context snapshots.
+This guide covers all the powerful features available in quzz, including the latest v0.4.0 features: file-based configuration, compact output format, terminal hyperlinks, heap snapshots, and environment variable support.
 
 ## Table of Contents
 
-1. [Core Features](#core-features)
-2. [Modular Storage Architecture](#modular-storage-architecture)
-3. [Context Snapshots](#context-snapshots)
-4. [Memory Leak Detection](#memory-leak-detection)
-5. [Performance Monitoring](#performance-monitoring)
-6. [Advanced Configuration](#advanced-configuration)
+1. [New in v0.4.0](#new-in-v040)
+   - [File-Based Configuration](#file-based-configuration)
+   - [Compact Output Format](#compact-output-format)
+   - [Terminal Hyperlinks](#terminal-hyperlinks)
+   - [Heap Snapshots](#heap-snapshots)
+   - [Environment Variables](#environment-variables)
+2. [Core Features](#core-features)
+3. [Modular Storage Architecture](#modular-storage-architecture)
+4. [Context Snapshots](#context-snapshots)
+5. [Memory Leak Detection](#memory-leak-detection)
+6. [Performance Monitoring](#performance-monitoring)
+7. [Advanced Configuration](#advanced-configuration)
+
+## New in v0.4.0
+
+### File-Based Configuration
+
+Following Next.js conventions, quzz now supports automatic configuration loading from a file in your project root.
+
+#### Supported Files (in priority order)
+
+1. `quzz.config.mjs` (ESM - preferred)
+2. `quzz.config.js` (CommonJS)
+3. `quzz.config.cjs` (CommonJS explicit)
+
+#### Example Configuration
+
+**quzz.config.mjs:**
+```typescript
+/** @type {import('quzz').QuzzConfig} */
+export default {
+  logLevel: "info",
+  outputFormat: "compact",
+
+  performance: {
+    enabled: true,
+    warnThreshold: 500,
+    trackMemory: true,
+    memoryThreshold: 50 * 1024 * 1024, // 50MB
+    enableHeapSnapshots: false,
+    heapSnapshotDir: "./heap-snapshots",
+  },
+
+  props: {
+    showPromiseTypes: true,
+    awaitProps: false,
+    maxArrayItems: 10,
+    maxObjectProps: 20,
+  },
+
+  // Component filtering with regex
+  componentFilter: /^(Blog|Product|Work)/,
+
+  // Security: redact sensitive keys
+  sensitiveKeys: ["apiKey", "secretToken", "privateData"],
+
+  // Terminal hyperlinks
+  enableHyperlinks: true,
+};
+```
+
+#### Configuration Priority
+
+Settings are merged in this order (highest priority last):
+
+1. **Defaults** (built-in)
+2. **quzz.config.mjs** (file-based)
+3. **Environment variables** (`QUZZ_*`)
+4. **configure()** (programmatic)
+
+#### Benefits
+
+- ✅ No code changes needed - just drop the config file in your root
+- ✅ Type-safe with JSDoc `@type` comments
+- ✅ Automatic loading on initialization
+- ✅ Follows Next.js convention (`next.config.mjs`)
+- ✅ Can still use `configure()` for runtime overrides
+- ✅ Supports both ESM and CommonJS
+
+#### API Functions
+
+```typescript
+import { hasConfigFile, getConfigFilePath, loadConfigFromFileAsync } from 'quzz';
+
+// Check if config file exists
+if (hasConfigFile()) {
+  console.log('Config found at:', getConfigFilePath());
+}
+
+// Manually load config (advanced use case)
+const config = await loadConfigFromFileAsync();
+```
+
+### Compact Output Format
+
+Clean, single-line logs perfect for high-frequency renders.
+
+#### Example Output
+
+```bash
+BlogDetailPage: 4.79ms (620MB) ✓
+ProductPage: 124.32ms (45MB) ⚠
+ErrorComponent: 532.11ms ✗ Database connection failed
+```
+
+#### Features
+
+- **Color-coded performance**: Green (<500ms), Yellow (<1000ms), Red (>1000ms)
+- **Memory display**: Shows heap usage in MB
+- **Status indicators**: ✓ (success), ⚠ (warning), ✗ (error)
+- **Single-line format**: No clutter, easy to scan
+
+#### Configuration
+
+```typescript
+// quzz.config.mjs
+export default {
+  outputFormat: "compact", // "pretty" | "compact" | "json"
+};
+
+// Or via environment variable
+// QUZZ_OUTPUT_FORMAT=compact
+```
+
+### Terminal Hyperlinks
+
+Clickable trace IDs using OSC 8 escape sequences.
+
+#### Supported Terminals
+
+- iTerm2 (macOS)
+- VS Code integrated terminal
+- GNOME Terminal
+- Hyper
+- Most xterm-compatible terminals
+
+#### Example Output
+
+```
+Trace: trace_abc123 (clickable - cmd+click to navigate)
+↳ Parent: trace_xyz789 (clickable)
+```
+
+#### How It Works
+
+Quzz uses OSC 8 escape sequences to create hyperlinks:
+- URL scheme: `quzz://trace/{traceId}`
+- Automatic detection of terminal support
+- Graceful fallback to plain text for unsupported terminals
+
+#### Configuration
+
+```typescript
+// quzz.config.mjs
+export default {
+  enableHyperlinks: true, // Default: true
+};
+
+// Or disable via environment
+// QUZZ_DISABLE_HYPERLINKS=true
+```
+
+### Heap Snapshots
+
+Automatic heap snapshot generation for memory debugging.
+
+#### Overview
+
+When memory usage exceeds a threshold, quzz automatically captures a heap snapshot for analysis in Chrome DevTools.
+
+#### Configuration
+
+```typescript
+// quzz.config.mjs
+export default {
+  performance: {
+    enabled: true,
+    trackMemory: true,
+    memoryThreshold: 50 * 1024 * 1024, // 50MB
+    enableHeapSnapshots: true,
+    heapSnapshotDir: "./heap-snapshots",
+  },
+};
+```
+
+#### How It Works
+
+1. Component renders with high memory delta (>50MB)
+2. Warning logged: `High memory usage detected: +52.34MB`
+3. Heap snapshot saved: `heap-ComponentName-2025-10-27T12-34-56.heapsnapshot`
+4. Log message: `Heap snapshot saved to: ./heap-snapshots/heap-ComponentName-...`
+
+#### Analyzing Snapshots
+
+1. Open Chrome DevTools
+2. Go to **Memory** tab
+3. Click **Load** button
+4. Select the `.heapsnapshot` file
+5. Analyze:
+   - **Summary**: Object types and memory usage
+   - **Comparison**: Compare with other snapshots
+   - **Containment**: Object retention paths
+   - **Statistics**: Memory distribution
+
+#### Safety Features
+
+- ✅ **Dev-only**: Automatically disabled in production
+- ✅ **Explicit opt-in**: Requires `enableHeapSnapshots: true`
+- ✅ **Warnings**: Warns about disk usage and overhead
+- ✅ **Auto-directory**: Creates directory if missing
+- ✅ **Timestamped**: Filenames include timestamp for tracking
+
+#### Use Cases
+
+- Memory leak detection
+- Understanding object retention
+- Optimizing memory usage
+- Debugging high memory consumption
+
+### Environment Variables
+
+Full environment variable support for CI/CD and production debugging.
+
+#### Supported Variables
+
+**Enable/Disable:**
+- `QUZZ_ENABLED=true|false|1|0` - Enable/disable tracing
+- `QUZZ_DISABLE=true` - Complete disable (highest priority)
+- `QUZZ_FORCE_ENABLE=true|false|1|0` - Force enable in production
+
+**Configuration:**
+- `QUZZ_LOG_LEVEL=silent|error|warn|info|debug|trace` - Set log level
+- `QUZZ_OUTPUT_FORMAT=pretty|json|compact` - Set output format
+
+**Features:**
+- `QUZZ_DISABLE_HYPERLINKS=true` - Disable terminal hyperlinks
+
+#### Examples
+
+**Development:**
+```bash
+QUZZ_LOG_LEVEL=debug QUZZ_OUTPUT_FORMAT=compact npm run dev
+```
+
+**CI/CD:**
+```bash
+QUZZ_ENABLED=true QUZZ_OUTPUT_FORMAT=json npm test
+```
+
+**Production Debugging (use with caution):**
+```bash
+QUZZ_FORCE_ENABLE=true QUZZ_LOG_LEVEL=error npm start
+```
+
+#### Priority Order
+
+1. `QUZZ_DISABLE` (highest - overrides everything)
+2. `QUZZ_ENABLED` (explicit enable)
+3. `configure()` / config file settings
+4. Environment detection (`NODE_ENV`)
+
+#### Benefits
+
+- ✅ Flexible configuration without code changes
+- ✅ Perfect for CI/CD pipelines
+- ✅ Environment-specific settings
+- ✅ Can override file-based config
+- ✅ Quick debugging in production (emergency only)
 
 ## Core Features
 
@@ -430,6 +692,62 @@ try {
 
 ## Migration Guide
 
+### From v0.3.x to v0.4.0
+
+The v0.4.0 release is fully backward compatible. All existing code continues to work, and new features are opt-in.
+
+#### Quick Migration
+
+**Option 1: File-Based Config (Recommended)**
+
+Create `quzz.config.mjs` in your project root and move your configuration there:
+
+```typescript
+// Before: app/layout.tsx
+import { configure } from 'quzz';
+
+configure({
+  logLevel: "info",
+  outputFormat: "pretty",
+  // ... rest of config
+});
+
+// After: quzz.config.mjs (in project root)
+export default {
+  logLevel: "info",
+  outputFormat: "compact", // Try the new compact format!
+  // ... rest of config
+};
+
+// app/layout.tsx - No code needed!
+// Config is automatically loaded
+```
+
+**Option 2: Keep Programmatic Config**
+
+Your existing `configure()` calls still work perfectly:
+
+```typescript
+// This still works exactly as before
+import { configure } from 'quzz';
+
+configure({
+  logLevel: "info",
+  outputFormat: "pretty",
+});
+```
+
+#### New Feature Adoption
+
+1. **Try compact output**: Set `outputFormat: "compact"` in your config
+2. **Enable heap snapshots**: Add `performance.enableHeapSnapshots: true`
+3. **Use environment variables**: `QUZZ_LOG_LEVEL=debug npm run dev`
+4. **Component filtering**: Add `componentFilter: /^(YourComponents)/`
+
+#### Breaking Changes
+
+**None!** v0.4.0 is fully backward compatible.
+
 ### From v0.2.x to v0.3.0
 
 The v0.3.0 release is backward compatible. Existing code continues to work, and new features are opt-in:
@@ -443,7 +761,7 @@ import { ContextManager } from 'quzz/storage';
 import { getContextSnapshots } from 'quzz';
 ```
 
-### Adopting New Features
+### Adopting v0.3.0 Features
 
 1. **Enable snapshots**: Add `enableSnapshots: true` to configuration
 2. **Enable memory tracking**: Add `performance.trackMemory: true`

@@ -4,6 +4,27 @@ export type LogLevel = "silent" | "error" | "warn" | "info" | "debug" | "trace";
 export type OutputFormat = "pretty" | "json" | "compact" | "custom";
 
 /**
+ * Valid log levels for type-safe validation
+ */
+export const VALID_LOG_LEVELS: readonly LogLevel[] = [
+  "silent",
+  "error",
+  "warn",
+  "info",
+  "debug",
+  "trace",
+] as const;
+
+/**
+ * Valid output formats for type-safe validation
+ */
+export const VALID_OUTPUT_FORMATS: readonly OutputFormat[] = [
+  "pretty",
+  "json",
+  "compact",
+] as const;
+
+/**
  * Custom log formatter function
  */
 export type LogFormatter = (entry: LogEntry) => string | void;
@@ -50,10 +71,75 @@ export interface PerformanceConfig {
    */
   trackMemory?: boolean;
   /**
+   * Memory usage threshold in bytes. Warn when memory delta exceeds this value
+   * @default 50 * 1024 * 1024 (50MB)
+   */
+  memoryThreshold?: number;
+  /**
    * Aggregate metrics over time
    * @default false
    */
   aggregate?: boolean;
+  /**
+   * Enable perf mode with heap snapshots (dev-only)
+   * WARNING: Creates heap dump files on disk when memory threshold is exceeded
+   * @default false
+   */
+  enableHeapSnapshots?: boolean;
+  /**
+   * Directory to save heap snapshots
+   * @default './heap-snapshots'
+   */
+  heapSnapshotDir?: string;
+}
+
+/**
+ * Prop serialization strategy
+ */
+export type PropSerializationStrategy = "safe" | "standard";
+
+/**
+ * Props logging configuration
+ */
+export interface PropsConfig {
+  /**
+   * Await Promise props before logging (Next.js 15+ async props support)
+   * WARNING: May trigger side effects (DB/network calls) or cause hangs
+   * @default false
+   */
+  awaitProps?: boolean;
+  /**
+   * Timeout for awaiting Promise props in milliseconds
+   * @default 5000
+   */
+  awaitTimeout?: number;
+  /**
+   * Show type hints for Promise props without awaiting them
+   * @default true
+   */
+  showPromiseTypes?: boolean;
+  /**
+   * Maximum array items to include before truncation
+   * @default 10
+   */
+  maxArrayItems?: number;
+  /**
+   * Maximum object properties to include before truncation
+   * @default 20
+   */
+  maxObjectProps?: number;
+  /**
+   * Maximum depth for error cause chain serialization
+   * @default 3
+   */
+  maxErrorDepth?: number;
+  /**
+   * Serialization strategy for props
+   * - 'safe': Uses custom safe stringify that handles circular refs, Promises, and complex types
+   * - 'standard': Uses default sanitization (existing behavior)
+   * @default 'standard'
+   */
+  serializationStrategy?: PropSerializationStrategy;
 }
 
 /**
@@ -70,6 +156,17 @@ export interface VisualizerConfig {
    * @default './traces.json'
    */
   output?: string;
+}
+
+/**
+ * Environment variable configuration
+ * Supports: QUZZ_ENABLED, QUZZ_LOG_LEVEL, QUZZ_OUTPUT_FORMAT, QUZZ_FORCE_ENABLE
+ */
+export interface EnvConfig {
+  enabled?: boolean;
+  logLevel?: LogLevel;
+  outputFormat?: OutputFormat;
+  forceEnable?: boolean;
 }
 
 /**
@@ -104,8 +201,14 @@ export interface QuzzConfig {
   performance?: PerformanceConfig;
 
   /**
+   * Props logging configuration
+   */
+  props?: PropsConfig;
+
+  /**
    * Whether to log component props (sanitized for security)
    * @default false
+   * @deprecated Use props.awaitProps instead
    */
   logProps?: boolean;
 
@@ -188,6 +291,18 @@ export interface QuzzConfig {
    * @default false
    */
   verboseMode?: boolean;
+
+  /**
+   * Suppress configuration warnings (e.g., awaitProps side effects warning)
+   * @default false
+   */
+  suppressConfigWarnings?: boolean;
+
+  /**
+   * Enable terminal hyperlinks for trace IDs (OSC 8 escape sequences)
+   * @default true
+   */
+  enableHyperlinks?: boolean;
 }
 
 /**

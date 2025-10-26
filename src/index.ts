@@ -3,6 +3,7 @@ import type { RSCTraceOptions, TraceMetadata } from "./types";
 import {
   getComponentName,
   sanitizeProps,
+  sanitizePropsAsync,
   serializeError,
   generateId,
 } from "./utils";
@@ -27,10 +28,23 @@ export type {
   LogFormatter,
   LogTransport,
   PerformanceConfig,
+  PropsConfig,
   VisualizerConfig,
+  PropSerializationStrategy,
+  EnvConfig,
 } from "./types";
 
+export { VALID_LOG_LEVELS, VALID_OUTPUT_FORMATS } from "./types";
+
+export type { SanitizePropsConfig } from "./utils";
+export { safeStringify } from "./utils";
+
 export { configure, getConfig, resetConfig } from "./config";
+export {
+  hasConfigFile,
+  getConfigFilePath,
+  loadConfigFromFileAsync,
+} from "./config-loader";
 export { PerformanceMonitor } from "./performance";
 export { TraceContext } from "./context";
 export { RSCBoundary } from "./boundary";
@@ -221,7 +235,8 @@ export function withRSCTrace<P extends object>(
       }
 
       const shouldLogProps =
-        config.logProps && !componentOptions.disable?.props;
+        (config.logProps || config.props?.awaitProps) &&
+        !componentOptions.disable?.props;
 
       await logger.info(componentName, `Rendering started`, metadata, tags);
 
@@ -235,7 +250,11 @@ export function withRSCTrace<P extends object>(
           }
         }
 
-        const sanitized = sanitizeProps(capturedProps, config);
+        // Use async sanitization if awaitProps is enabled
+        const sanitized = config.props?.awaitProps
+          ? await sanitizePropsAsync(capturedProps, config)
+          : sanitizeProps(capturedProps, config);
+
         metadata.props = sanitized;
         await logger.debug(
           componentName,
@@ -263,6 +282,7 @@ export function withRSCTrace<P extends object>(
         if (perfMonitor && !componentOptions.disable?.timing) {
           perfMonitor.recordRender(componentName, duration, false);
 
+          // Check render duration threshold
           if (
             config.performance?.warnThreshold &&
             perfMonitor.shouldWarn(duration, config.performance)
@@ -274,6 +294,43 @@ export function withRSCTrace<P extends object>(
               undefined,
               tags
             );
+          }
+
+          // Check memory threshold
+          if (config.performance?.trackMemory && metadata.memory) {
+            const memAfter = perfMonitor.getMemoryUsage();
+            const memCheck = perfMonitor.shouldWarnMemory(
+              metadata.memory,
+              memAfter,
+              config.performance
+            );
+
+            if (memCheck.exceeded) {
+              const deltaMB = (memCheck.delta / 1024 / 1024).toFixed(2);
+              await logger.warn(
+                componentName,
+                `High memory usage detected: +${deltaMB}MB`,
+                metadata,
+                undefined,
+                tags
+              );
+
+              // Write heap snapshot if enabled
+              if (config.performance?.enableHeapSnapshots) {
+                const snapshotPath = perfMonitor.writeHeapSnapshot(
+                  componentName,
+                  config.performance
+                );
+                if (snapshotPath) {
+                  await logger.info(
+                    componentName,
+                    `Heap snapshot saved to: ${snapshotPath}`,
+                    metadata,
+                    tags
+                  );
+                }
+              }
+            }
           }
         }
 
@@ -318,7 +375,8 @@ export function withRSCTrace<P extends object>(
 
         return result;
       } catch (error) {
-        const serializedError = serializeError(error as Error);
+        const maxErrorDepth = config.props?.maxErrorDepth ?? 3;
+        const serializedError = serializeError(error as Error, maxErrorDepth);
         metadata.error = serializedError;
 
         if (config.debugContext) {

@@ -17,6 +17,50 @@ const colors = {
 };
 
 /**
+ * Check if terminal supports hyperlinks (OSC 8)
+ * Most modern terminals support this: iTerm2, VS Code, GNOME Terminal, etc.
+ */
+function supportsHyperlinks(): boolean {
+  // Check if explicitly disabled via env var
+  if (process.env.QUZZ_DISABLE_HYPERLINKS === "true") {
+    return false;
+  }
+
+  // Check environment variables that indicate hyperlink support
+  const term = process.env.TERM || "";
+  const termProgram = process.env.TERM_PROGRAM || "";
+
+  // Known supporting terminals
+  const supportedTerms = ["iTerm.app", "vscode", "Hyper"];
+  if (supportedTerms.includes(termProgram)) {
+    return true;
+  }
+
+  // Check for xterm-256color and similar
+  if (term.includes("xterm") || term.includes("screen")) {
+    return true;
+  }
+
+  // Default to true for unknown terminals (graceful degradation)
+  return true;
+}
+
+/**
+ * Create a terminal hyperlink using OSC 8 escape sequence
+ * Falls back to plain text if hyperlinks are not supported
+ */
+function createHyperlink(text: string, url: string, enabled = true): string {
+  if (!enabled || !supportsHyperlinks()) {
+    return text;
+  }
+
+  // OSC 8 ; params ; URI ST text OSC 8 ;; ST
+  const OSC = "\x1b]";
+  const ST = "\x1b\\";
+  return `${OSC}8;;${url}${ST}${text}${OSC}8;;${ST}`;
+}
+
+/**
  * Format timestamp for display
  */
 function formatTimestamp(timestamp: number): string {
@@ -108,8 +152,21 @@ export function prettyFormatter(entry: LogEntry): string {
       }
     }
 
+    // Display trace ID with optional hyperlink
+    if (entry.metadata.traceId) {
+      const traceIdDisplay = createHyperlink(
+        entry.metadata.traceId,
+        `quzz://trace/${entry.metadata.traceId}`
+      );
+      output += `\n  ${colors.dim}Trace: ${colors.cyan}${traceIdDisplay}${colors.reset}`;
+    }
+
     if (entry.metadata.parentTrace) {
-      output += `\n  ${colors.dim}↳ Parent: ${entry.metadata.parentTrace}${colors.reset}`;
+      const parentDisplay = createHyperlink(
+        entry.metadata.parentTrace,
+        `quzz://trace/${entry.metadata.parentTrace}`
+      );
+      output += `\n  ${colors.dim}↳ Parent: ${colors.cyan}${parentDisplay}${colors.reset}`;
     }
 
     if (entry.metadata.props && Object.keys(entry.metadata.props).length > 0) {
@@ -158,31 +215,45 @@ export function jsonFormatter(entry: LogEntry): string {
 }
 
 /**
- * Compact single-line format
+ * Compact single-line format with colors
+ * Format: ComponentName: duration (memory) [level] message
+ * Example: BlogDetailPage: 4.79ms (620MB) ✓
  */
 export function compactFormatter(entry: LogEntry): string {
-  const parts = [
-    entry.timestamp,
-    entry.level.toUpperCase(),
-    entry.componentName,
-    entry.message,
-  ];
+  const levelColor = getLevelColor(entry.level);
+  let output = `${colors.bright}${entry.componentName}${colors.reset}: `;
 
-  if (entry.metadata?.duration) {
-    if (entry.metadata.wallClockTime !== undefined) {
-      parts.push(
-        `${entry.metadata.duration.toFixed(2)}ms compute | ${entry.metadata.wallClockTime.toFixed(2)}ms total`
-      );
-    } else {
-      parts.push(`${entry.metadata.duration.toFixed(2)}ms`);
-    }
+  // Duration with color based on performance
+  if (entry.metadata?.duration !== undefined) {
+    const duration = entry.metadata.duration;
+    const durationColor =
+      duration > 1000
+        ? colors.red
+        : duration > 500
+          ? colors.yellow
+          : colors.green;
+
+    output += `${durationColor}${duration.toFixed(2)}ms${colors.reset}`;
   }
 
+  // Memory usage if available
+  if (entry.metadata?.memory) {
+    const heapUsedMB = (entry.metadata.memory.heapUsed / 1024 / 1024).toFixed(
+      0
+    );
+    output += ` ${colors.dim}(${heapUsedMB}MB)${colors.reset}`;
+  }
+
+  // Level indicator (compact emoji or symbol)
+  const levelIndicator = entry.level === "error" ? " ✗" : entry.level === "warn" ? " ⚠" : " ✓";
+  output += `${levelColor}${levelIndicator}${colors.reset}`;
+
+  // Error message if present
   if (entry.error) {
-    parts.push(`ERROR: ${entry.error.message}`);
+    output += ` ${colors.red}${entry.error.message}${colors.reset}`;
   }
 
-  return parts.join(" | ");
+  return output;
 }
 
 /**
