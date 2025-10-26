@@ -19,7 +19,8 @@ All core systems use singleton pattern for:
 
 **Singletons:**
 - `ConfigManager` - Global configuration
-- `TraceContext` - Component hierarchy tracking
+- `ContextManager` - Storage orchestration and lifecycle management
+- `TraceContext` - Component hierarchy tracking (now delegates to ContextManager)
 - `PerformanceMonitor` - Metrics aggregation
 - `Logger` - Centralized logging
 
@@ -57,16 +58,23 @@ Per-component options override global config, allowing:
 
 ```
 src/
-├── index.ts          # Main HOC + public API (226 lines)
-├── types.ts          # TypeScript definitions (216 lines)
-├── config.ts         # Configuration singleton (111 lines)
-├── context.ts        # Trace context tracking (80 lines)
-├── performance.ts    # Performance monitoring (141 lines)
-├── logger.ts         # Logging with transports (165 lines)
-├── formatters.ts     # Output formatters (148 lines)
-└── utils.ts          # Helper functions (237 lines)
+├── index.ts                    # Main HOC + public API (350+ lines)
+├── boundary.tsx                # RSCBoundary component (280+ lines)
+├── types.ts                    # TypeScript definitions (250+ lines)
+├── config.ts                   # Configuration singleton (111 lines)
+├── context.ts                  # Trace context tracking (80 lines)
+├── performance.ts              # Performance monitoring (141 lines)
+├── logger.ts                   # Logging with transports (165 lines)
+├── formatters.ts               # Output formatters (148 lines)
+├── utils/                      # Helper functions (300+ lines)
+└── storage/                    # Modular storage system (NEW)
+    ├── base.ts                 # Abstract AsyncLocalStorage base (370+ lines)
+    ├── context-manager.ts      # Storage orchestration (400+ lines)
+    ├── trace-storage.ts        # Trace context storage (180+ lines)
+    ├── memory-metrics-storage.ts # Memory tracking (250+ lines)
+    └── types.ts                # Storage type definitions (64 lines)
 
-Total: ~1,383 lines of production code
+Total: ~2,800+ lines of production code
 ```
 
 ## Key Components
@@ -93,8 +101,83 @@ class ConfigManager {
 - Avoids prop drilling configuration through components
 - Enables global `configure()` function
 
+### ContextManager (NEW in v0.3.0)
+**Responsibility**: Central orchestration of modular storage system
+
+```typescript
+class ContextManager {
+  private storages: Map<string, StorageInstance>
+  private traceStorage: TraceStorage | null
+  private memoryStorage: MemoryMetricsStorage | null
+
+  registerStorage(name, storage, enabled): void
+  runWithStorage(name, context, callback): R
+  captureSnapshot(options): ContextSnapshot | null
+  runWithSnapshot(callback, options): R
+  getMemoryStats(): MemoryStats | null
+  getAllStats(): Record<string, StorageStats>
+}
+```
+
+**Features:**
+- Pluggable storage architecture
+- Context isolation across async boundaries
+- Memory leak detection
+- Context snapshots for debugging (Node.js 16.12+)
+- Fallback support for older Node.js versions
+
+### Storage Modules
+
+#### BaseAsyncStorage<T>
+**Abstract base class for all storage implementations**
+
+```typescript
+abstract class BaseAsyncStorage<T> {
+  protected asyncLocalStorage: AsyncLocalStorage<T> | null
+
+  abstract createDefaultStore(): T
+  abstract validateStore(store): store is T
+
+  run(store: T, callback): R
+  captureSnapshot(options): ContextSnapshot<T>
+  runWithSnapshot(callback, options): R
+  isSnapshotSupported(): boolean
+}
+```
+
+#### TraceStorage
+**Manages component trace hierarchy**
+- Tracks parent-child relationships
+- Maintains trace metadata
+- Provides hierarchy navigation
+
+#### MemoryMetricsStorage
+**Memory usage monitoring and leak detection**
+- Captures memory snapshots
+- Detects potential memory leaks
+- Tracks memory trends over time
+- Configurable leak thresholds
+
+### Context Snapshots (NEW)
+**Advanced debugging capability for async flows**
+
+```typescript
+interface ContextSnapshot<T> {
+  timestamp: number
+  store: T | undefined
+  stackDepth: number
+  label?: string
+}
+```
+
+**Features:**
+- Capture context state at any point
+- Automatic capture in verbose mode
+- Stack depth tracking
+- Node.js 16.12+ AsyncLocalStorage.snapshot() support
+- Fallback mechanism for older versions
+
 ### TraceContext
-**Responsibility**: Track component hierarchy
 
 ```typescript
 class TraceContext {

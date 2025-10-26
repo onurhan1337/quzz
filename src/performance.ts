@@ -1,55 +1,59 @@
-import type { PerformanceMetrics, PerformanceConfig } from './types'
+import type { PerformanceMetrics, PerformanceConfig } from "./types";
 
 /**
  * Performance monitor with metrics aggregation and automatic memory management
  */
 class PerformanceMonitor {
-  private static instance: PerformanceMonitor
-  private metrics = new Map<string, PerformanceMetrics>()
-  private componentRenders = new Map<string, number[]>()
-  private lastCleanup = Date.now()
-  private maxComponents = 500 // Maximum number of components to track
-  private maxRenderHistory = 100 // Maximum renders per component
-  private cleanupInterval = 60000 // Cleanup every minute
+  private static instance: PerformanceMonitor;
+  private metrics = new Map<string, PerformanceMetrics>();
+  private componentRenders = new Map<string, number[]>();
+  private lastCleanup = Date.now();
+  private maxComponents = 500; // Maximum number of components to track
+  private maxRenderHistory = 100; // Maximum renders per component
+  private cleanupInterval = 60000; // Cleanup every minute
 
   private constructor() {}
 
   static getInstance(): PerformanceMonitor {
     if (!PerformanceMonitor.instance) {
-      PerformanceMonitor.instance = new PerformanceMonitor()
+      PerformanceMonitor.instance = new PerformanceMonitor();
     }
-    return PerformanceMonitor.instance
+    return PerformanceMonitor.instance;
   }
 
   /**
    * Perform automatic cleanup of old metrics
    */
   private performCleanup(): void {
-    const now = Date.now()
+    const now = Date.now();
     if (now - this.lastCleanup < this.cleanupInterval) {
-      return
+      return;
     }
 
-    this.lastCleanup = now
+    this.lastCleanup = now;
 
     // Remove least recently used components if we exceed max
     if (this.metrics.size > this.maxComponents) {
-      const sortedComponents = Array.from(this.metrics.entries())
-        .sort((a, b) => a[1].lastRender - b[1].lastRender)
+      const sortedComponents = Array.from(this.metrics.entries()).sort(
+        (a, b) => a[1].lastRender - b[1].lastRender
+      );
 
-      const toRemove = sortedComponents.slice(0, this.metrics.size - this.maxComponents)
+      const toRemove = sortedComponents.slice(
+        0,
+        this.metrics.size - this.maxComponents
+      );
       toRemove.forEach(([componentName]) => {
-        this.metrics.delete(componentName)
-        this.componentRenders.delete(componentName)
-      })
+        this.metrics.delete(componentName);
+        this.componentRenders.delete(componentName);
+      });
     }
 
     // Clean up stale metrics (not rendered in last hour)
-    const oneHourAgo = now - 3600000
+    const oneHourAgo = now - 3600000;
     for (const [componentName, metric] of this.metrics.entries()) {
       if (metric.lastRender < oneHourAgo) {
-        this.metrics.delete(componentName)
-        this.componentRenders.delete(componentName)
+        this.metrics.delete(componentName);
+        this.componentRenders.delete(componentName);
       }
     }
   }
@@ -57,11 +61,15 @@ class PerformanceMonitor {
   /**
    * Record a render performance metric
    */
-  recordRender(componentName: string, duration: number, hasError: boolean = false): void {
+  recordRender(
+    componentName: string,
+    duration: number,
+    hasError: boolean = false
+  ): void {
     // Perform cleanup check
-    this.performCleanup()
+    this.performCleanup();
 
-    const existing = this.metrics.get(componentName)
+    const existing = this.metrics.get(componentName);
 
     if (!existing) {
       this.metrics.set(componentName, {
@@ -72,18 +80,19 @@ class PerformanceMonitor {
         totalRenders: 1,
         errorCount: hasError ? 1 : 0,
         lastRender: Date.now(),
-      })
-      this.componentRenders.set(componentName, [duration])
+      });
+      this.componentRenders.set(componentName, [duration]);
     } else {
-      const renders = this.componentRenders.get(componentName) || []
-      renders.push(duration)
+      const renders = this.componentRenders.get(componentName) || [];
+      renders.push(duration);
 
       // Keep only last N renders for memory efficiency
       if (renders.length > this.maxRenderHistory) {
-        renders.shift()
+        renders.shift();
       }
 
-      const avgDuration = renders.reduce((sum, d) => sum + d, 0) / renders.length
+      const avgDuration =
+        renders.reduce((sum, d) => sum + d, 0) / renders.length;
 
       this.metrics.set(componentName, {
         componentName,
@@ -93,9 +102,9 @@ class PerformanceMonitor {
         totalRenders: existing.totalRenders + 1,
         errorCount: existing.errorCount + (hasError ? 1 : 0),
         lastRender: Date.now(),
-      })
+      });
 
-      this.componentRenders.set(componentName, renders)
+      this.componentRenders.set(componentName, renders);
     }
   }
 
@@ -103,41 +112,41 @@ class PerformanceMonitor {
    * Get metrics for a specific component
    */
   getMetrics(componentName: string): PerformanceMetrics | undefined {
-    return this.metrics.get(componentName)
+    return this.metrics.get(componentName);
   }
 
   /**
    * Get all metrics
    */
   getAllMetrics(): Map<string, PerformanceMetrics> {
-    return new Map(this.metrics)
+    return new Map(this.metrics);
   }
 
   /**
    * Get performance summary
    */
   getSummary(): {
-    totalComponents: number
-    totalRenders: number
-    totalErrors: number
-    slowestComponent: string | null
-    fastestComponent: string | null
+    totalComponents: number;
+    totalRenders: number;
+    totalErrors: number;
+    slowestComponent: string | null;
+    fastestComponent: string | null;
   } {
-    let totalRenders = 0
-    let totalErrors = 0
-    let slowest: PerformanceMetrics | null = null
-    let fastest: PerformanceMetrics | null = null
+    let totalRenders = 0;
+    let totalErrors = 0;
+    let slowest: PerformanceMetrics | null = null;
+    let fastest: PerformanceMetrics | null = null;
 
     for (const metric of this.metrics.values()) {
-      totalRenders += metric.totalRenders
-      totalErrors += metric.errorCount
+      totalRenders += metric.totalRenders;
+      totalErrors += metric.errorCount;
 
       if (!slowest || metric.avgDuration > slowest.avgDuration) {
-        slowest = metric
+        slowest = metric;
       }
 
       if (!fastest || metric.avgDuration < fastest.avgDuration) {
-        fastest = metric
+        fastest = metric;
       }
     }
 
@@ -147,44 +156,44 @@ class PerformanceMonitor {
       totalErrors,
       slowestComponent: slowest?.componentName || null,
       fastestComponent: fastest?.componentName || null,
-    }
+    };
   }
 
   /**
    * Check if duration exceeds threshold and should warn
    */
   shouldWarn(duration: number, config: PerformanceConfig): boolean {
-    const threshold = config.warnThreshold ?? 1000
-    return duration > threshold
+    const threshold = config.warnThreshold ?? 1000;
+    return duration > threshold;
   }
 
   /**
    * Get memory usage (Node.js only)
    */
   getMemoryUsage(): { heapUsed: number; heapTotal: number } | null {
-    if (typeof process !== 'undefined' && process.memoryUsage) {
-      const mem = process.memoryUsage()
+    if (typeof process !== "undefined" && process.memoryUsage) {
+      const mem = process.memoryUsage();
       return {
         heapUsed: mem.heapUsed,
         heapTotal: mem.heapTotal,
-      }
+      };
     }
-    return null
+    return null;
   }
 
   /**
    * Clear all metrics
    */
   clear(): void {
-    this.metrics.clear()
-    this.componentRenders.clear()
+    this.metrics.clear();
+    this.componentRenders.clear();
   }
 
   /**
    * Export metrics as JSON
    */
   exportMetrics(): string {
-    const metricsArray = Array.from(this.metrics.values())
+    const metricsArray = Array.from(this.metrics.values());
     return JSON.stringify(
       {
         summary: this.getSummary(),
@@ -193,8 +202,8 @@ class PerformanceMonitor {
       },
       null,
       2
-    )
+    );
   }
 }
 
-export { PerformanceMonitor }
+export { PerformanceMonitor };

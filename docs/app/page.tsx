@@ -4,6 +4,7 @@ import { InteractiveDemo } from "@/components/interactive-demo";
 import { ConfigDemo } from "@/components/config-demo";
 import { QuzzDemo } from "@/components/quzz-demo";
 import { RSCBoundaryDemo } from "@/components/rsc-boundary-demo";
+import { StorageDemo } from "@/components/storage-demo";
 import {
   Zap,
   AlertCircle,
@@ -11,6 +12,8 @@ import {
   Shield,
   Code2,
   Settings,
+  Database,
+  Camera,
 } from "lucide-react";
 
 export default function Home() {
@@ -57,7 +60,7 @@ export const UserProfile = withRSCTrace(
 
         <div className="max-w-[900px] mx-auto px-4 relative">
           <div className="max-w-[780px] mx-auto mb-12">
-            <h2 className="text-4xl font-bold tracking-tight mb-4">
+            <h2 className="text-4xl  tracking-tight mb-4">
               Watch the magic happen
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground">
@@ -116,7 +119,7 @@ configure({
 
         <div className="max-w-[900px] mx-auto px-4 relative">
           <div className="max-w-[780px] mx-auto mb-12">
-            <h2 className="text-4xl font-bold tracking-tight mb-4">
+            <h2 className="text-4xl  tracking-tight mb-4">
               Configure your workflow
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground">
@@ -136,7 +139,7 @@ configure({
 
         <div className="max-w-[900px] mx-auto px-4 relative">
           <div className="max-w-[780px] mx-auto mb-12">
-            <h2 className="text-4xl font-bold tracking-tight mb-4">
+            <h2 className="text-4xl  tracking-tight mb-4">
               RSCBoundary: The wrapper-free way
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground">
@@ -155,13 +158,36 @@ configure({
 
       <Separator />
 
+      <section className="relative py-24 sm:py-[90px] overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 via-transparent to-cyan-500/5 pointer-events-none" />
+
+        <div className="max-w-[900px] mx-auto px-4 relative">
+          <div className="max-w-[780px] mx-auto mb-12">
+            <h2 className="text-4xl text-center tracking-tight mb-4">
+              <span className="bg-gradient-to-r from-neutral-300 to-zinc-300 bg-clip-text text-transparent">
+                v0.3.0
+              </span>{" "}
+              Modular Storage & Snapshots
+            </h2>
+            <p className="text-base leading-relaxed text-muted-foreground text-center">
+              Simple state management for React Server Components.
+              Request-isolated storage, context snapshots, and memory leak
+              detection built-in.
+            </p>
+          </div>
+
+          <StorageDemo />
+        </div>
+      </section>
+
+      <Separator />
+
       <section className="py-24 sm:py-[90px] relative overflow-hidden">
-        {/* Background gradient effect */}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent pointer-events-none" />
 
         <div className="max-w-[900px] mx-auto px-4 relative">
           <div className="max-w-[680px] mx-auto text-center mb-16">
-            <h2 className="text-4xl font-bold tracking-tight mb-4">
+            <h2 className="text-4xl tracking-tight mb-4">
               Production-ready features
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground">
@@ -171,27 +197,27 @@ configure({
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="group relative rounded-xl border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
               <div className="relative">
-                <div className="mb-4 w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <div className="mb-4 w-12 h-12 rounded-none bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Zap className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">Performance tracking</h3>
+                <h3 className="text-xl mb-2">Performance tracking</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Automatic monitoring of component render times with
-                  configurable warning thresholds and memory tracking.
+                  Automatic monitoring with memory leak detection, render times,
+                  and configurable thresholds. Track memory trends over time.
                 </p>
               </div>
             </div>
 
-            <div className="group relative rounded-xl border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
               <div className="relative">
-                <div className="mb-4 w-12 h-12 rounded-lg bg-red-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <div className="mb-4 w-12 h-12 rounded-none bg-red-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <AlertCircle className="w-6 h-6 text-red-500" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">Error context</h3>
+                <h3 className="text-xl  mb-2">Error context</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Enhanced error traces capture full context, props, and stack
                   traces for faster debugging.
@@ -199,13 +225,13 @@ configure({
               </div>
             </div>
 
-            <div className="group relative rounded-xl border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
               <div className="relative">
-                <div className="mb-4 w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <div className="mb-4 w-12 h-12 rounded-none bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Network className="w-6 h-6 text-blue-500" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">Component hierarchy</h3>
+                <h3 className="text-xl  mb-2">Component hierarchy</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Visualize parent-child relationships and trace execution flow
                   through nested components.
@@ -213,13 +239,13 @@ configure({
               </div>
             </div>
 
-            <div className="group relative rounded-xl border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
               <div className="relative">
-                <div className="mb-4 w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Shield className="w-6 h-6 text-green-500" />
+                <div className="mb-4 w-12 h-12 rounded-none bg-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Shield className="w-6 h-6 text-lime-500" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">Zero overhead</h3>
+                <h3 className="text-xl  mb-2">Zero overhead</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Conditionally enable in development only. No performance
                   impact in production builds.
@@ -227,13 +253,13 @@ configure({
               </div>
             </div>
 
-            <div className="group relative rounded-xl border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
               <div className="relative">
-                <div className="mb-4 w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <div className="mb-4 w-12 h-12 rounded-none bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Code2 className="w-6 h-6 text-purple-500" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">Type-safe</h3>
+                <h3 className="text-xl  mb-2">Type-safe</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Built with TypeScript for full type safety and excellent IDE
                   autocomplete support.
@@ -241,18 +267,44 @@ configure({
               </div>
             </div>
 
-            <div className="group relative rounded-xl border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
               <div className="relative">
-                <div className="mb-4 w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <div className="mb-4 w-12 h-12 rounded-none bg-orange-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Settings className="w-6 h-6 text-orange-500" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">
-                  Flexible configuration
-                </h3>
+                <h3 className="text-xl  mb-2">Flexible configuration</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Customize log levels, output formats, and performance
                   thresholds per component or globally.
+                </p>
+              </div>
+            </div>
+
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-none" />
+              <div className="relative">
+                <div className="mb-4 w-12 h-12 rounded-none bg-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Database className="w-6 h-6 text-indigo-500" />
+                </div>
+                <h3 className="text-xl  mb-2">Modular storage</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Pluggable storage architecture with AsyncLocalStorage for
+                  isolated context tracking across async boundaries.
+                </p>
+              </div>
+            </div>
+
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <div className="relative">
+                <div className="mb-4 w-12 h-12 rounded-none bg-cyan-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Camera className="w-6 h-6 text-cyan-500" />
+                </div>
+                <h3 className="text-xl  mb-2">Context snapshots</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Debug complex async flows with context snapshots. Capture
+                  state at any point for advanced debugging (Node.js 16.12+).
                 </p>
               </div>
             </div>
@@ -268,7 +320,7 @@ configure({
       >
         <div className="max-w-4xl mx-auto px-4 relative">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold tracking-tight mb-3">
+            <h2 className="text-3xl  tracking-tight mb-3">
               Get started in 30 seconds
             </h2>
             <p className="text-muted-foreground">
@@ -279,7 +331,7 @@ configure({
           <div className="space-y-8">
             {/* Step 1 */}
             <div className="flex items-start gap-6 p-6 rounded-lg border bg-card/50">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm ">
                 1
               </div>
               <div className="flex-1 min-w-0">
@@ -295,7 +347,7 @@ configure({
 
             {/* Step 2 */}
             <div className="flex items-start gap-6 p-6 rounded-lg border bg-card/50">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm ">
                 2
               </div>
               <div className="flex-1 min-w-0">
@@ -321,7 +373,7 @@ configure({
 
             {/* Step 3 */}
             <div className="flex items-start gap-6 p-6 rounded-lg border bg-card/50">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm ">
                 3
               </div>
               <div className="flex-1 min-w-0">
@@ -349,9 +401,7 @@ configure({
       <section className="py-20 sm:py-24">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold tracking-tight mb-3">
-              Try it live
-            </h2>
+            <h2 className="text-3xl  tracking-tight mb-3">Try it live</h2>
             <p className="text-muted-foreground">
               Play with the interactive demo and see quzz in action
             </p>

@@ -2,63 +2,49 @@ import type { TraceMetadata } from "./types";
 import { TraceCollector } from "./visualizer/trace-collector";
 import { ConfigManager } from "./config";
 import { MemoryLeakDetector, ContextValidator } from "./validators";
-
-interface RequestContext {
-  traceStack: string[];
-  traceMap: Map<string, TraceMetadata>;
-  contextId: string;
-  createdAt: number;
-}
-
-type AsyncLocalStorageType<T> = {
-  new (): AsyncLocalStorageInstance<T>;
-};
-
-type AsyncLocalStorageInstance<T> = {
-  getStore(): T | undefined;
-  enterWith(store: T): void;
-  run<R>(store: T, callback: () => R): R;
-};
-
-let AsyncLocalStorageClass: AsyncLocalStorageType<RequestContext> | null = null;
-
-if (typeof process !== "undefined" && process.versions?.node) {
-  try {
-    const module = require("node:async_hooks");
-    AsyncLocalStorageClass = module.AsyncLocalStorage;
-  } catch {
-    AsyncLocalStorageClass = null;
-  }
-}
+import { ContextManager } from "./storage/context-manager";
+import { getNodeVersionInfo } from "./utils/node-version";
 
 /**
  * Trace context for tracking nested component hierarchies with request isolation
  */
 class TraceContext {
   private static instance: TraceContext;
-  private asyncLocalStorage: AsyncLocalStorageInstance<RequestContext> | null;
+  private readonly contextManager: ContextManager;
   private contextOverhead: Map<string, number> = new Map();
 
-  // Fallback for environments without AsyncLocalStorage
-  private globalTraceStack: string[] = [];
-  private globalTraceMap = new Map<string, TraceMetadata>();
-  private globalContextId?: string;
-  private globalCreatedAt?: number;
-
   private constructor() {
-    // Initialize AsyncLocalStorage if available
-    if (AsyncLocalStorageClass) {
-      try {
-        this.asyncLocalStorage = new AsyncLocalStorageClass();
-      } catch (e) {
-        console.warn(
-          "[quzz] AsyncLocalStorage initialization failed, using global trace context"
-        );
-        this.asyncLocalStorage = null;
-      }
-    } else {
-      this.asyncLocalStorage = null;
+    const config = ConfigManager.getInstance().getConfig();
+    const versionInfo = getNodeVersionInfo();
+
+    if (!versionInfo.isSupported && config.debugContext) {
+      console.warn(
+        `[quzz] Node.js ${versionInfo.version} detected. AsyncLocalStorage requires Node.js 12.17.0 or higher. ` +
+          `Using fallback mechanism.`
+      );
+    } else if (!versionInfo.isStable && config.debugContext) {
+      console.info(
+        `[quzz] Node.js ${versionInfo.version} detected. Consider upgrading to Node.js 14.0.0 or higher for better stability.`
+      );
     }
+
+    this.contextManager = ContextManager.getInstance({
+      debugMode: config.debugContext,
+      enableTracing: config.contextTracking !== false,
+      enableMemoryMetrics: config.performance?.trackMemory,
+      traceOptions: {
+        maxStackDepth: 100,
+        maxMapSize: 1000,
+        cleanupThreshold: 100,
+      },
+      memoryOptions: {
+        maxSnapshots: 100,
+        snapshotInterval: 5000,
+        leakThreshold: 50 * 1024 * 1024,
+        autoSnapshot:
+          config.performance?.trackMemory && config.performance?.aggregate,
+      },
+    });
   }
 
   static getInstance(): TraceContext {
@@ -66,40 +52,6 @@ class TraceContext {
       TraceContext.instance = new TraceContext();
     }
     return TraceContext.instance;
-  }
-
-  /**
-   * Get current request context or fallback to global
-   */
-  private getContext(): RequestContext {
-    if (this.asyncLocalStorage) {
-      const store = this.asyncLocalStorage.getStore();
-      if (store) return store;
-
-      const newContext: RequestContext = {
-        traceStack: [],
-        traceMap: new Map(),
-        contextId: this.generateContextId(),
-        createdAt: Date.now(),
-      };
-      return newContext;
-    }
-
-    return {
-      traceStack: this.globalTraceStack,
-      traceMap: this.globalTraceMap,
-      contextId:
-        this.globalContextId ||
-        (this.globalContextId = this.generateContextId()),
-      createdAt: this.globalCreatedAt || (this.globalCreatedAt = Date.now()),
-    };
-  }
-
-  /**
-   * Generate unique context ID
-   */
-  private generateContextId(): string {
-    return `ctx_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   }
 
   /**
@@ -113,11 +65,8 @@ class TraceContext {
    * Start a new trace
    */
   startTrace(metadata: TraceMetadata): void {
-    const context = this.getContext();
-    context.traceMap.set(metadata.traceId, metadata);
-    context.traceStack.push(metadata.traceId);
+    this.contextManager.startTrace(metadata);
 
-    // Add to trace collector if visualization is enabled
     const config = ConfigManager.getInstance().getConfig();
     if (config.visualizer?.enabled) {
       const collector = TraceCollector.getInstance();
@@ -132,55 +81,32 @@ class TraceContext {
    * End a trace
    */
   endTrace(traceId: string): void {
-    const context = this.getContext();
-    const index = context.traceStack.indexOf(traceId);
-    if (index !== -1) {
-      context.traceStack.splice(index, 1);
-    }
-
-    // Clean up old traces to prevent memory leaks
-    if (context.traceStack.length === 0 && context.traceMap.size > 100) {
-      // Keep only last 100 traces for debugging
-      const tracesToKeep = Array.from(context.traceMap.keys()).slice(-100);
-      const newMap = new Map<string, TraceMetadata>();
-      tracesToKeep.forEach((id) => {
-        const trace = context.traceMap.get(id);
-        if (trace) newMap.set(id, trace);
-      });
-      context.traceMap = newMap;
-    }
+    this.contextManager.endTrace(traceId);
   }
 
   /**
    * Get current parent trace ID
    */
   getCurrentParentId(): string | undefined {
-    const context = this.getContext();
-    return context.traceStack[context.traceStack.length - 1];
+    return this.contextManager.getCurrentParentId();
   }
 
   /**
    * Get trace metadata by ID
    */
   getTrace(traceId: string): TraceMetadata | undefined {
-    const context = this.getContext();
-    return context.traceMap.get(traceId);
+    return this.contextManager.getTrace(traceId);
   }
 
   /**
    * Update trace metadata
    */
   updateTrace(traceId: string, updates: Partial<TraceMetadata>): void {
-    const context = this.getContext();
-    const existing = context.traceMap.get(traceId);
-    if (existing) {
-      context.traceMap.set(traceId, { ...existing, ...updates });
+    this.contextManager.updateTrace(traceId, updates);
 
-      // Update in trace collector if visualization is enabled
-      const config = ConfigManager.getInstance().getConfig();
-      if (config.visualizer?.enabled) {
-        TraceCollector.getInstance().updateTrace(traceId, updates);
-      }
+    const config = ConfigManager.getInstance().getConfig();
+    if (config.visualizer?.enabled) {
+      TraceCollector.getInstance().updateTrace(traceId, updates);
     }
   }
 
@@ -188,84 +114,83 @@ class TraceContext {
    * Get full trace hierarchy for current request
    */
   getTraceHierarchy(): string[] {
-    const context = this.getContext();
-    return [...context.traceStack];
+    return this.contextManager.getTraceHierarchy();
   }
 
   /**
    * Clear all traces (for testing)
    */
   clear(): void {
-    if (this.asyncLocalStorage) {
-      const context = this.asyncLocalStorage.getStore();
-      if (context) {
-        context.traceStack = [];
-        context.traceMap.clear();
-      }
-    }
-
-    this.globalTraceStack = [];
-    this.globalTraceMap.clear();
+    this.contextManager.clearAll();
   }
 
   /**
    * Run a function in a new isolated request context
    */
   runInNewContext<T>(fn: () => T): T {
-    const contextId = this.generateContextId();
-    const startTime = process.hrtime.bigint();
+    const contextId = `ctx_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const startTime =
+      typeof process !== "undefined" && process.hrtime
+        ? process.hrtime.bigint()
+        : Date.now();
 
     MemoryLeakDetector.trackContextCreation(contextId);
 
     try {
-      if (this.asyncLocalStorage) {
-        const newContext: RequestContext = {
-          traceStack: [],
-          traceMap: new Map(),
-          contextId,
-          createdAt: Date.now(),
-        };
+      const config = ConfigManager.getInstance().getConfig();
+      const trackMemory = config.performance?.trackMemory ?? false;
 
-        const result = this.asyncLocalStorage.run(newContext, () => {
-          // Only validate in debug mode to avoid production overhead
-          if (ConfigManager.getInstance().getConfig().debugContext && Math.random() < 0.01) {
-            const validation = ContextValidator.validateContextState(
-              newContext.traceStack,
-              newContext.traceMap
-            );
-            if (!validation.valid) {
-              console.error(
-                "[quzz:context] Context validation failed:",
-                validation.errors
-              );
+      const result = this.contextManager.runInContext(
+        () => {
+          if (config.debugContext && Math.random() < 0.01) {
+            const traceStorage =
+              this.contextManager.getStorage<
+                import("./storage/trace-storage").TraceContext
+              >("trace");
+
+            if (traceStorage) {
+              const traceContext = traceStorage.getStore();
+              if (traceContext) {
+                const validation = ContextValidator.validateContextState(
+                  traceContext.traceStack,
+                  traceContext.traceMap
+                );
+                if (!validation.valid) {
+                  console.error(
+                    "[quzz:context] Context validation failed:",
+                    validation.errors
+                  );
+                }
+              }
             }
           }
           return fn();
-        });
+        },
+        { trackMemory }
+      );
 
-        // Only track overhead in debug mode
-        if (ConfigManager.getInstance().getConfig().debugContext) {
-          const endTime = process.hrtime.bigint();
-          const overhead = Number(endTime - startTime) / 1000000;
-          this.contextOverhead.set(contextId, overhead);
+      if (config.debugContext) {
+        const endTime =
+          typeof process !== "undefined" && process.hrtime
+            ? Number(process.hrtime.bigint() - BigInt(startTime)) / 1000000
+            : Date.now() - Number(startTime);
 
-          if (this.contextOverhead.size > 100) {
-            const oldestKeys = Array.from(this.contextOverhead.keys()).slice(
-              0,
-              20
-            );
-            oldestKeys.forEach((key) => {
-              this.contextOverhead.delete(key);
-              MemoryLeakDetector.clearContext(key);
-            });
-          }
+        this.contextOverhead.set(contextId, endTime);
+
+        if (this.contextOverhead.size > 100) {
+          const oldestKeys = Array.from(this.contextOverhead.keys()).slice(
+            0,
+            20
+          );
+          oldestKeys.forEach((key) => {
+            this.contextOverhead.delete(key);
+            MemoryLeakDetector.clearContext(key);
+          });
         }
-
-        MemoryLeakDetector.clearContext(contextId);
-
-        return result;
       }
-      return fn();
+
+      MemoryLeakDetector.clearContext(contextId);
+      return result;
     } catch (error) {
       MemoryLeakDetector.clearContext(contextId);
 
@@ -273,6 +198,9 @@ class TraceContext {
         contextId,
         message: error instanceof Error ? error.message : "Unknown error",
         stack: error instanceof Error ? error.stack : undefined,
+        nodeVersion:
+          typeof process !== "undefined" ? process.version : "unknown",
+        stats: this.contextManager.getAllStats(),
       };
 
       if (ConfigManager.getInstance().getConfig().debugContext) {
@@ -289,7 +217,7 @@ class TraceContext {
   /**
    * Export trace tree for visualization
    */
-  exportTraceTree(): ReturnType<TraceCollector['getSession']> | null {
+  exportTraceTree(): ReturnType<TraceCollector["getSession"]> | null {
     const config = ConfigManager.getInstance().getConfig();
     if (!config.visualizer?.enabled) {
       return null;
@@ -348,7 +276,15 @@ class TraceContext {
     traceMapSize: number;
   } | null {
     try {
-      const context = this.getContext();
+      const traceStorage =
+        this.contextManager.getStorage<
+          import("./storage/trace-storage").TraceContext
+        >("trace");
+      if (!traceStorage) return null;
+
+      const context = traceStorage.getStore();
+      if (!context) return null;
+
       return {
         contextId: context.contextId,
         createdAt: context.createdAt,
@@ -358,6 +294,61 @@ class TraceContext {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Get runtime environment information
+   * @internal
+   */
+  getRuntimeInfo(): {
+    nodeVersion: string | undefined;
+    asyncLocalStorageAvailable: boolean;
+    usingFallback: boolean;
+    isStableVersion: boolean;
+    minimumRequiredVersion: string;
+    recommendedVersion: string;
+    storageStats: Record<string, any>;
+  } {
+    const versionInfo = getNodeVersionInfo();
+    const stats = this.contextManager.getAllStats();
+
+    return {
+      nodeVersion: versionInfo.version,
+      asyncLocalStorageAvailable: versionInfo.isSupported,
+      usingFallback: stats.trace?.isUsingFallback ?? true,
+      isStableVersion: versionInfo.isStable,
+      minimumRequiredVersion: "12.17.0",
+      recommendedVersion: "14.0.0",
+      storageStats: stats,
+    };
+  }
+
+  /**
+   * Get memory statistics
+   * @internal
+   */
+  getMemoryStats(): ReturnType<ContextManager["getMemoryStats"]> {
+    return this.contextManager.getMemoryStats();
+  }
+
+  /**
+   * Get memory trend
+   * @internal
+   */
+  getMemoryTrend(
+    windowSize?: number
+  ): ReturnType<ContextManager["getMemoryTrend"]> {
+    return this.contextManager.getMemoryTrend(windowSize);
+  }
+
+  /**
+   * Update configuration
+   * @internal
+   */
+  updateConfig(
+    config: Parameters<ContextManager["updateFromConfig"]>[0]
+  ): void {
+    this.contextManager.updateFromConfig(config);
   }
 }
 

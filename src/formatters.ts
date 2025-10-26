@@ -1,27 +1,27 @@
-import type { LogEntry, OutputFormat } from './types'
+import type { LogEntry, OutputFormat } from "./types";
 
 /**
  * ANSI color codes for terminal output
  */
 const colors = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  dim: '\x1b[2m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  magenta: '\x1b[35m',
-  cyan: '\x1b[36m',
-  gray: '\x1b[90m',
-}
+  reset: "\x1b[0m",
+  bright: "\x1b[1m",
+  dim: "\x1b[2m",
+  red: "\x1b[31m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  blue: "\x1b[34m",
+  magenta: "\x1b[35m",
+  cyan: "\x1b[36m",
+  gray: "\x1b[90m",
+};
 
 /**
  * Format timestamp for display
  */
 function formatTimestamp(timestamp: number): string {
-  const date = new Date(timestamp)
-  return date.toISOString().replace('T', ' ').replace('Z', '')
+  const date = new Date(timestamp);
+  return date.toISOString().replace("T", " ").replace("Z", "");
 }
 
 /**
@@ -29,18 +29,18 @@ function formatTimestamp(timestamp: number): string {
  */
 function getLevelColor(level: string): string {
   switch (level) {
-    case 'error':
-      return colors.red
-    case 'warn':
-      return colors.yellow
-    case 'info':
-      return colors.cyan
-    case 'debug':
-      return colors.blue
-    case 'trace':
-      return colors.magenta
+    case "error":
+      return colors.red;
+    case "warn":
+      return colors.yellow;
+    case "info":
+      return colors.cyan;
+    case "debug":
+      return colors.blue;
+    case "trace":
+      return colors.magenta;
     default:
-      return colors.reset
+      return colors.reset;
   }
 }
 
@@ -49,18 +49,18 @@ function getLevelColor(level: string): string {
  */
 function getLevelEmoji(level: string): string {
   switch (level) {
-    case 'error':
-      return '❌'
-    case 'warn':
-      return '⚠️ '
-    case 'info':
-      return 'ℹ️ '
-    case 'debug':
-      return '🔍'
-    case 'trace':
-      return '🔬'
+    case "error":
+      return "❌";
+    case "warn":
+      return "⚠️ ";
+    case "info":
+      return "ℹ️ ";
+    case "debug":
+      return "🔍";
+    case "trace":
+      return "🔬";
     default:
-      return '  '
+      return "  ";
   }
 }
 
@@ -68,70 +68,93 @@ function getLevelEmoji(level: string): string {
  * Pretty format with colors and emojis
  */
 export function prettyFormatter(entry: LogEntry): string {
-  const levelColor = getLevelColor(entry.level)
-  const emoji = getLevelEmoji(entry.level)
-  const time = formatTimestamp(entry.timestamp)
+  const levelColor = getLevelColor(entry.level);
+  const emoji = getLevelEmoji(entry.level);
+  const time = formatTimestamp(entry.timestamp);
 
-  let output = `${colors.dim}${time}${colors.reset} ${emoji} ${levelColor}${entry.level.toUpperCase()}${colors.reset} `
-  output += `${colors.bright}${entry.componentName}${colors.reset} `
+  let output = `${colors.dim}${time}${colors.reset} ${emoji} ${levelColor}${entry.level.toUpperCase()}${colors.reset} `;
+  output += `${colors.bright}${entry.componentName}${colors.reset} `;
 
   if (entry.tags && entry.tags.length > 0) {
-    output += `${colors.gray}[${entry.tags.join(', ')}]${colors.reset} `
+    output += `${colors.gray}[${entry.tags.join(", ")}]${colors.reset} `;
   }
 
-  output += `${entry.message}`
+  output += `${entry.message}`;
 
   if (entry.metadata) {
     if (entry.metadata.duration !== undefined) {
-      const durationColor = entry.metadata.duration > 1000 ? colors.red : entry.metadata.duration > 500 ? colors.yellow : colors.green
+      const durationColor =
+        entry.metadata.duration > 1000
+          ? colors.red
+          : entry.metadata.duration > 500
+            ? colors.yellow
+            : colors.green;
 
-      if (entry.metadata.wallClockTime !== undefined && entry.metadata.waitTime !== undefined) {
-        const wallColor = entry.metadata.wallClockTime > 1000 ? colors.red : entry.metadata.wallClockTime > 500 ? colors.yellow : colors.green
-        output += ` ${colors.dim}(${durationColor}${entry.metadata.duration.toFixed(2)}ms compute${colors.dim}, `
-        output += `${wallColor}${entry.metadata.wallClockTime.toFixed(2)}ms total${colors.dim}, `
-        output += `${colors.gray}${entry.metadata.waitTime.toFixed(2)}ms wait${colors.dim})${colors.reset}`
+      if (
+        entry.metadata.wallClockTime !== undefined &&
+        entry.metadata.waitTime !== undefined
+      ) {
+        const wallColor =
+          entry.metadata.wallClockTime > 1000
+            ? colors.red
+            : entry.metadata.wallClockTime > 500
+              ? colors.yellow
+              : colors.green;
+        output += ` ${colors.dim}(${durationColor}${entry.metadata.duration.toFixed(2)}ms compute${colors.dim}, `;
+        output += `${wallColor}${entry.metadata.wallClockTime.toFixed(2)}ms total${colors.dim}, `;
+        output += `${colors.gray}${entry.metadata.waitTime.toFixed(2)}ms wait${colors.dim})${colors.reset}`;
       } else {
-        output += ` ${colors.dim}(${durationColor}${entry.metadata.duration.toFixed(2)}ms${colors.dim})${colors.reset}`
+        output += ` ${colors.dim}(${durationColor}${entry.metadata.duration.toFixed(2)}ms${colors.dim})${colors.reset}`;
       }
     }
 
     if (entry.metadata.parentTrace) {
-      output += `\n  ${colors.dim}↳ Parent: ${entry.metadata.parentTrace}${colors.reset}`
+      output += `\n  ${colors.dim}↳ Parent: ${entry.metadata.parentTrace}${colors.reset}`;
     }
 
     if (entry.metadata.props && Object.keys(entry.metadata.props).length > 0) {
-      output += `\n  ${colors.dim}Props:${colors.reset} ${JSON.stringify(entry.metadata.props, null, 2)
-        .split('\n')
+      output += `\n  ${colors.dim}Props:${colors.reset} ${JSON.stringify(
+        entry.metadata.props,
+        null,
+        2
+      )
+        .split("\n")
         .map((line, i) => (i === 0 ? line : `  ${line}`))
-        .join('\n')}`
+        .join("\n")}`;
     }
 
     if (entry.metadata.memory) {
-      const heapUsedMB = (entry.metadata.memory.heapUsed / 1024 / 1024).toFixed(2)
-      const heapTotalMB = (entry.metadata.memory.heapTotal / 1024 / 1024).toFixed(2)
-      output += `\n  ${colors.dim}Memory: ${heapUsedMB}MB / ${heapTotalMB}MB${colors.reset}`
+      const heapUsedMB = (entry.metadata.memory.heapUsed / 1024 / 1024).toFixed(
+        2
+      );
+      const heapTotalMB = (
+        entry.metadata.memory.heapTotal /
+        1024 /
+        1024
+      ).toFixed(2);
+      output += `\n  ${colors.dim}Memory: ${heapUsedMB}MB / ${heapTotalMB}MB${colors.reset}`;
     }
   }
 
   if (entry.error) {
-    output += `\n  ${colors.red}${entry.error.name}: ${entry.error.message}${colors.reset}`
+    output += `\n  ${colors.red}${entry.error.name}: ${entry.error.message}${colors.reset}`;
     if (entry.error.digest) {
-      output += `\n  ${colors.dim}Digest: ${entry.error.digest}${colors.reset}`
+      output += `\n  ${colors.dim}Digest: ${entry.error.digest}${colors.reset}`;
     }
     if (entry.error.stack) {
-      const stackLines = entry.error.stack.split('\n').slice(1, 6)
-      output += `\n${colors.gray}${stackLines.join('\n')}${colors.reset}`
+      const stackLines = entry.error.stack.split("\n").slice(1, 6);
+      output += `\n${colors.gray}${stackLines.join("\n")}${colors.reset}`;
     }
   }
 
-  return output
+  return output;
 }
 
 /**
  * JSON format for structured logging
  */
 export function jsonFormatter(entry: LogEntry): string {
-  return JSON.stringify(entry)
+  return JSON.stringify(entry);
 }
 
 /**
@@ -143,34 +166,38 @@ export function compactFormatter(entry: LogEntry): string {
     entry.level.toUpperCase(),
     entry.componentName,
     entry.message,
-  ]
+  ];
 
   if (entry.metadata?.duration) {
     if (entry.metadata.wallClockTime !== undefined) {
-      parts.push(`${entry.metadata.duration.toFixed(2)}ms compute | ${entry.metadata.wallClockTime.toFixed(2)}ms total`)
+      parts.push(
+        `${entry.metadata.duration.toFixed(2)}ms compute | ${entry.metadata.wallClockTime.toFixed(2)}ms total`
+      );
     } else {
-      parts.push(`${entry.metadata.duration.toFixed(2)}ms`)
+      parts.push(`${entry.metadata.duration.toFixed(2)}ms`);
     }
   }
 
   if (entry.error) {
-    parts.push(`ERROR: ${entry.error.message}`)
+    parts.push(`ERROR: ${entry.error.message}`);
   }
 
-  return parts.join(' | ')
+  return parts.join(" | ");
 }
 
 /**
  * Get formatter by output format
  */
-export function getFormatter(format: OutputFormat): (entry: LogEntry) => string {
+export function getFormatter(
+  format: OutputFormat
+): (entry: LogEntry) => string {
   switch (format) {
-    case 'json':
-      return jsonFormatter
-    case 'compact':
-      return compactFormatter
-    case 'pretty':
+    case "json":
+      return jsonFormatter;
+    case "compact":
+      return compactFormatter;
+    case "pretty":
     default:
-      return prettyFormatter
+      return prettyFormatter;
   }
 }
