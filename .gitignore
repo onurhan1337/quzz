@@ -8,3 +8,5 @@ coverage
 .turbo
 *.tsbuildinfo
 .cursor
+heap-snapshots
+*.heapsnapshot
