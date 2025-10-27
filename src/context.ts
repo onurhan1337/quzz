@@ -65,14 +65,35 @@ class TraceContext {
    * Start a new trace
    */
   startTrace(metadata: TraceMetadata): void {
+    const config = ConfigManager.getInstance().getConfig();
+
+    if (config.debugContext) {
+      console.debug(
+        `[quzz:startTrace] Starting trace for ${metadata.componentName}`,
+        {
+          traceId: metadata.traceId,
+          parentTrace: metadata.parentTrace,
+          hasParent: !!metadata.parentTrace,
+        }
+      );
+    }
+
     this.contextManager.startTrace(metadata);
 
-    const config = ConfigManager.getInstance().getConfig();
     if (config.visualizer?.enabled) {
       const collector = TraceCollector.getInstance();
       if (!collector.getSession()) {
         collector.initialize(config.visualizer?.output, true);
       }
+
+      if (config.debugContext) {
+        console.debug(`[quzz:addTrace] Adding to collector`, {
+          componentName: metadata.componentName,
+          traceId: metadata.traceId,
+          parentTrace: metadata.parentTrace,
+        });
+      }
+
       collector.addTrace(metadata);
     }
   }

@@ -301,18 +301,7 @@ export async function RSCBoundary({
     }
   };
 
-  if (!context) {
-    return executeBoundary();
-  }
-
-  const traceStorage = ContextManager.getInstance().getStorage("trace");
-  const hasActiveContext = traceStorage?.getStore() !== undefined;
-
-  if (hasActiveContext) {
-    return executeBoundary();
-  }
-
-  return context.runInNewContext(() => executeBoundary());
+  return executeBoundary();
 }
 
 RSCBoundary.displayName = "RSCBoundary";
