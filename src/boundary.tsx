@@ -301,7 +301,16 @@ export async function RSCBoundary({
     }
   };
 
-  return context?.runInNewContext(() => executeBoundary()) ?? executeBoundary();
+  if (!context) {
+    return executeBoundary();
+  }
+
+  const currentParent = context.getCurrentParentId();
+  if (currentParent) {
+    return executeBoundary();
+  }
+
+  return context.runInNewContext(() => executeBoundary());
 }
 
 RSCBoundary.displayName = "RSCBoundary";

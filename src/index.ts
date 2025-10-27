@@ -439,9 +439,16 @@ export function withRSCTrace<P extends object>(
       }
     };
 
-    return (
-      context?.runInNewContext(() => executeComponent()) ?? executeComponent()
-    );
+    if (!context) {
+      return executeComponent();
+    }
+
+    const currentParent = context.getCurrentParentId();
+    if (currentParent) {
+      return executeComponent();
+    }
+
+    return context.runInNewContext(() => executeComponent());
   };
 
   TracedComponent.displayName = `withRSCTrace(${componentName})`;
