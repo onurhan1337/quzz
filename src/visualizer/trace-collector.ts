@@ -150,8 +150,12 @@ export class TraceCollector {
     } else {
       const parent = this.traces.get(trace.parentTrace);
       if (parent) {
-        parent.children.push(trace);
+        if (!parent.children.includes(trace)) {
+          parent.children.push(trace);
+        }
         trace.depth = parent.depth + 1;
+      } else {
+        this.rootTraces.push(trace);
       }
     }
 

@@ -3,13 +3,13 @@ import { existsSync } from "fs";
 import { resolve, join } from "path";
 import type { QuzzConfig } from "./types";
 
-/**
- * Supported config file names in priority order
- */
 const CONFIG_FILES = [
-  "quzz.config.mjs", // ESM (preferred)
-  "quzz.config.js", // CommonJS (fallback)
-  "quzz.config.cjs", // CommonJS explicit
+  "quzz.config.ts",
+  "quzz.config.mts",
+  "quzz.config.cts",
+  "quzz.config.mjs",
+  "quzz.config.js",
+  "quzz.config.cjs",
 ] as const;
 
 /**
@@ -46,16 +46,12 @@ function getProjectRoot(): string {
   return process.cwd();
 }
 
-/**
- * Load ESM config file (.mjs)
- */
 async function loadEsmConfig(filepath: string): Promise<QuzzConfig | null> {
   try {
-    // Convert to file URL for dynamic import
-    const fileUrl = pathToFileURL(filepath).href;
+    const cacheBuster = `?t=${Date.now()}`;
+    const fileUrl = pathToFileURL(filepath).href + cacheBuster;
     const module = await import(fileUrl);
 
-    // Support both default export and named export
     const config = module.default || module.config;
 
     if (!config) {
@@ -99,13 +95,7 @@ function loadCjsConfig(filepath: string): QuzzConfig | null {
   }
 }
 
-/**
- * Load quzz configuration from file synchronously
- * Only supports .js and .cjs files for synchronous loading
- * For .mjs files, use loadConfigFromFileAsync()
- */
 export function loadConfigFromFile(): QuzzConfig | null {
-  // Skip in browser environment
   if (typeof process === "undefined" || typeof require === "undefined") {
     return null;
   }
@@ -118,19 +108,19 @@ export function loadConfigFromFile(): QuzzConfig | null {
       return null;
     }
 
-    // Only load .js and .cjs synchronously
-    // .mjs requires async import
-    if (configFile.endsWith(".mjs")) {
+    const ext = configFile.slice(configFile.lastIndexOf("."));
+
+    if (ext === ".mjs" || ext === ".mts" || ext === ".ts" || ext === ".cts") {
       console.warn(
-        `[quzz] Found ${configFile} but .mjs requires async loading. ` +
-          `Use .js or .cjs for synchronous config loading, or the config will be loaded asynchronously.`
+        `[quzz] Found ${configFile} but ESM/TypeScript files require async loading.\n` +
+          `Recommendation: Use quzz.config.js or quzz.config.cjs with CommonJS syntax for immediate loading,\n` +
+          `or accept the async behavior. The config will be loaded asynchronously in the background.`
       );
-      // Schedule async load in background
-      loadEsmConfig(configFile).then((config) => {
-        if (config) {
-          console.log(`[quzz] Async config loaded from: ${configFile}`);
-        }
+
+      loadEsmConfig(configFile).catch((err) => {
+        console.error(`[quzz] Failed to load config asynchronously:`, err);
       });
+
       return null;
     }
 
@@ -142,12 +132,7 @@ export function loadConfigFromFile(): QuzzConfig | null {
   }
 }
 
-/**
- * Load quzz configuration from file asynchronously
- * Supports all file types: .mjs, .js, .cjs
- */
 export async function loadConfigFromFileAsync(): Promise<QuzzConfig | null> {
-  // Skip in browser environment
   if (typeof process === "undefined") {
     return null;
   }
@@ -162,8 +147,9 @@ export async function loadConfigFromFileAsync(): Promise<QuzzConfig | null> {
 
     console.log(`[quzz] Loading config from: ${configFile}`);
 
-    // Load based on file extension
-    if (configFile.endsWith(".mjs")) {
+    const ext = configFile.slice(configFile.lastIndexOf("."));
+
+    if (ext === ".mjs" || ext === ".mts" || ext === ".ts" || ext === ".cts") {
       return await loadEsmConfig(configFile);
     } else {
       return loadCjsConfig(configFile);

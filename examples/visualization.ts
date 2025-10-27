@@ -1,8 +1,8 @@
 /**
- * Visualization and trace collection examples
+ * Trace collection and analysis examples
  *
- * Learn how to collect traces for visualization and analysis
- * using the built-in quzz-viz CLI tool.
+ * Learn how to collect traces for performance analysis
+ * using the built-in TraceCollector.
  */
 
 import { configure, RSCBoundary, withRSCTrace, TraceContext } from 'quzz'
@@ -85,22 +85,39 @@ export async function GET(request: Request) {
   })
 }
 
-// Step 5: Use the CLI visualization tool
+// Step 5: Access and analyze collected traces
 /*
  * After running your application with visualization enabled:
  *
  * 1. Traces will be automatically saved to ./traces.json
  *
- * 2. Run the visualization server:
- *    npx quzz-viz ./traces.json
- *
- * 3. Open http://localhost:3456 in your browser
- *
- * 4. Explore:
- *    - Timeline view: See component execution order and duration
- *    - Flamegraph: Visualize nested component hierarchy
- *    - Statistics: Analyze performance metrics per component
+ * 2. Access traces programmatically:
  */
+
+import { TraceCollector } from 'quzz/visualizer/trace-collector'
+
+export async function analyzeTraces() {
+  const collector = TraceCollector.getInstance()
+
+  const session = collector.getSession()
+  console.log('Session Summary:', {
+    totalTraces: session?.totalTraces,
+    totalErrors: session?.totalErrors,
+    slowestComponent: session?.slowestComponent,
+  })
+
+  const stats = collector.getStatistics()
+  console.log('Detailed Statistics:', {
+    avgDuration: stats.avgDuration,
+    maxDuration: stats.maxDuration,
+    componentStats: Array.from(stats.componentStats.entries()),
+  })
+
+  const errorTraces = collector.getErrorTraces()
+  console.log('Error Traces:', errorTraces)
+
+  await collector.save('./analyzed-traces.json')
+}
 
 // Example: Complex nested structure for visualization
 export async function ComplexPage({ userId }: { userId: string }) {
@@ -176,7 +193,7 @@ export async function PerformanceAnalysis() {
   })
 
   // 2. Run your application under load
-  // 3. Analyze with quzz-viz
+  // 3. Analyze programmatically or export for further analysis
   // 4. Identify bottlenecks:
   //    - Components with high wait time (I/O bound)
   //    - Components with high compute time (CPU bound)

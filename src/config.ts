@@ -1,4 +1,10 @@
-import type { QuzzConfig, RSCTraceOptions, EnvConfig, LogLevel, OutputFormat } from "./types";
+import type {
+  QuzzConfig,
+  RSCTraceOptions,
+  EnvConfig,
+  LogLevel,
+  OutputFormat,
+} from "./types";
 import { VALID_LOG_LEVELS, VALID_OUTPUT_FORMATS } from "./types";
 import { ConfigValidator, validateEnvironment } from "./validators";
 import { loadConfigFromFile } from "./config-loader";

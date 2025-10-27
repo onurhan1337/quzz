@@ -245,7 +245,8 @@ export function compactFormatter(entry: LogEntry): string {
   }
 
   // Level indicator (compact emoji or symbol)
-  const levelIndicator = entry.level === "error" ? " ✗" : entry.level === "warn" ? " ⚠" : " ✓";
+  const levelIndicator =
+    entry.level === "error" ? " ✗" : entry.level === "warn" ? " ⚠" : " ✓";
   output += `${levelColor}${levelIndicator}${colors.reset}`;
 
   // Error message if present

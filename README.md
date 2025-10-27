@@ -39,7 +39,7 @@ quzz provides a simple HOC wrapper that gives you detailed logging during develo
 ### Developer Experience
 
 - Optional: `<RSCBoundary>` component for fine-grained tracing
-- Optional: Built-in trace visualizer CLI (`quzz-viz`)
+- Built-in trace collection for performance analysis
 - Full TypeScript support with type-safe config
 - Plugin system for custom integrations
 - Regex-based component filtering
@@ -84,11 +84,22 @@ Memory: 45.2 MB
 
 ### Option 1: File-Based Configuration (Recommended)
 
-Create a `quzz.config.mjs` file in your project root (similar to `next.config.mjs`):
+Create a configuration file in your project root:
 
-```typescript
+**Supported file formats (in priority order):**
+- `quzz.config.ts` - TypeScript (requires async loading)
+- `quzz.config.mts` - TypeScript ESM (requires async loading)
+- `quzz.config.cts` - TypeScript CommonJS (requires async loading)
+- `quzz.config.mjs` - JavaScript ESM (requires async loading)
+- `quzz.config.js` - JavaScript CommonJS (immediate loading, **recommended**)
+- `quzz.config.cjs` - JavaScript CommonJS explicit (immediate loading)
+
+**Recommended: Use `.js` or `.cjs` for immediate synchronous loading:**
+
+```javascript
+// quzz.config.js
 /** @type {import('quzz').QuzzConfig} */
-export default {
+module.exports = {
   logLevel: "info",
   outputFormat: "compact", // "pretty" | "compact" | "json"
 
@@ -117,6 +128,23 @@ export default {
   enableHyperlinks: true,
 };
 ```
+
+**Alternative: TypeScript or ESM (async loading):**
+
+```typescript
+// quzz.config.ts or quzz.config.mjs
+import type { QuzzConfig } from 'quzz';
+
+const config: QuzzConfig = {
+  logLevel: "info",
+  outputFormat: "compact",
+  // ... rest of config
+};
+
+export default config;
+```
+
+**Note:** TypeScript and ESM config files (`.ts`, `.mts`, `.mjs`) require asynchronous module loading and will be loaded in the background. For immediate loading at startup, use `.js` or `.cjs` with CommonJS syntax.
 
 **That's it!** Config is automatically loaded when quzz initializes. No code changes needed.
 
@@ -662,12 +690,13 @@ export default async function Dashboard({ userId }: { userId: string }) {
 - **Use RSCBoundary** for: async components without default exports, fine-grained tracing of specific regions, components you can't modify
 - **Use withRSCTrace** for: simpler setup, lower overhead, most general component tracing
 
-### Trace Visualization (Optional)
+### Trace Collection for Performance Analysis
 
-Visualize component traces with the built-in CLI tool:
+Collect and export component traces for analysis:
 
 ```tsx
-// Enable trace collection
+import { configure, TraceCollector } from "quzz";
+
 configure({
   visualizer: {
     enabled: true,
@@ -676,15 +705,25 @@ configure({
 });
 ```
 
-Then run your app and visualize:
+Then access collected traces programmatically:
 
-```bash
-npm run dev
-npx quzz-viz ./traces.json
-# Open http://localhost:3456
+```tsx
+import { TraceCollector } from "quzz/visualizer/trace-collector";
+
+const collector = TraceCollector.getInstance();
+
+await collector.save("./my-traces.json");
+
+const session = collector.getSession();
+console.log(`Total traces: ${session?.totalTraces}`);
+console.log(`Total errors: ${session?.totalErrors}`);
+console.log(`Slowest component: ${session?.slowestComponent?.name}`);
+
+const stats = collector.getStatistics();
+console.log(stats);
 ```
 
-The visualizer provides timeline views, flamegraphs, statistics, and filtering capabilities.
+The trace collector provides detailed statistics, error tracking, and performance metrics for building custom analysis tools.
 
 ## Production Safety
 
