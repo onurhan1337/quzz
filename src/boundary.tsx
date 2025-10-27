@@ -65,15 +65,15 @@ export async function RSCBoundary({
         })
       : null;
 
+  const traceId = generateId("boundary");
+  const parentTraceId = context?.getCurrentParentId();
+
   const executeBoundary = async () => {
     const wallClockStart = shouldTrackTotalLatency ? Date.now() : 0;
     const renderStartTime =
       typeof globalThis.performance !== "undefined"
         ? globalThis.performance.now()
         : Date.now();
-
-    const traceId = generateId("boundary");
-    const parentTraceId = context?.getCurrentParentId();
 
     const metadata: TraceMetadata = {
       componentName: label,

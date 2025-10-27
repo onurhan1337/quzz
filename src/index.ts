@@ -175,11 +175,11 @@ export function withRSCTrace<P extends object>(
           })
         : null;
 
+    const traceId = generateId("trace");
+    const parentTraceId = context?.getCurrentParentId();
+
     const executeComponent = async () => {
       const renderStartTime = performance.now();
-
-      const traceId = generateId("trace");
-      const parentTraceId = context?.getCurrentParentId();
 
       if (config.debugContext) {
         const traceStorage = ContextManager.getInstance().getStorage("trace");
