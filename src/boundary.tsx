@@ -305,8 +305,10 @@ export async function RSCBoundary({
     return executeBoundary();
   }
 
-  const currentParent = context.getCurrentParentId();
-  if (currentParent) {
+  const traceStorage = ContextManager.getInstance().getStorage("trace");
+  const hasActiveContext = traceStorage?.getStore() !== undefined;
+
+  if (hasActiveContext) {
     return executeBoundary();
   }
 

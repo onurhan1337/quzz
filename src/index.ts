@@ -181,6 +181,10 @@ export function withRSCTrace<P extends object>(
       const traceId = generateId("trace");
       const parentTraceId = context?.getCurrentParentId();
 
+      if (config.debugContext && parentTraceId) {
+        console.debug(`[quzz:hierarchy] Component "${componentName}" has parent: ${parentTraceId}`);
+      }
+
       const metadata: TraceMetadata = {
         componentName,
         tags,
@@ -443,8 +447,10 @@ export function withRSCTrace<P extends object>(
       return executeComponent();
     }
 
-    const currentParent = context.getCurrentParentId();
-    if (currentParent) {
+    const traceStorage = ContextManager.getInstance().getStorage("trace");
+    const hasActiveContext = traceStorage?.getStore() !== undefined;
+
+    if (hasActiveContext) {
       return executeComponent();
     }
 
