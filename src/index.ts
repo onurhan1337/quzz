@@ -178,6 +178,18 @@ export function withRSCTrace<P extends object>(
     const traceId = generateId("trace");
     const parentTraceId = context?.getCurrentParentId();
 
+    const metadata: TraceMetadata = {
+      componentName,
+      tags,
+      renderStart: Date.now(),
+      traceId,
+      parentTrace: parentTraceId,
+    };
+
+    if (context) {
+      context.startTrace(metadata);
+    }
+
     const executeComponent = async () => {
       const renderStartTime = performance.now();
 
@@ -191,14 +203,6 @@ export function withRSCTrace<P extends object>(
           traceStack: currentStore ? (currentStore as any).traceStack : [],
         });
       }
-
-      const metadata: TraceMetadata = {
-        componentName,
-        tags,
-        renderStart: Date.now(),
-        traceId,
-        parentTrace: parentTraceId,
-      };
 
       if (config.debugContext) {
         const contextInfo = context?.getCurrentContext();
@@ -226,10 +230,6 @@ export function withRSCTrace<P extends object>(
             }
           );
         }
-      }
-
-      if (context) {
-        context.startTrace(metadata);
       }
 
       if (config.performance?.trackMemory) {

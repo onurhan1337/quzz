@@ -68,20 +68,24 @@ export async function RSCBoundary({
   const traceId = generateId("boundary");
   const parentTraceId = context?.getCurrentParentId();
 
+  const metadata: TraceMetadata = {
+    componentName: label,
+    tags,
+    renderStart: Date.now(),
+    traceId,
+    parentTrace: parentTraceId,
+  };
+
+  if (context) {
+    context.startTrace(metadata);
+  }
+
   const executeBoundary = async () => {
     const wallClockStart = shouldTrackTotalLatency ? Date.now() : 0;
     const renderStartTime =
       typeof globalThis.performance !== "undefined"
         ? globalThis.performance.now()
         : Date.now();
-
-    const metadata: TraceMetadata = {
-      componentName: label,
-      tags,
-      renderStart: Date.now(),
-      traceId,
-      parentTrace: parentTraceId,
-    };
 
     if (config.debugContext) {
       const contextInfo = context?.getCurrentContext();
@@ -106,10 +110,6 @@ export async function RSCBoundary({
           }
         );
       }
-    }
-
-    if (context) {
-      context.startTrace(metadata);
     }
 
     if (config.performance?.trackMemory) {
