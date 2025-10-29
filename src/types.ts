@@ -293,6 +293,13 @@ export interface QuzzConfig {
   verboseMode?: boolean;
 
   /**
+   * Automatically link child traces to parent traces in the stack
+   * Disabling can reduce overhead but may result in broken hierarchy
+   * @default true
+   */
+  autoLinkParent?: boolean;
+
+  /**
    * Suppress configuration warnings (e.g., awaitProps side effects warning)
    * @default false
    */

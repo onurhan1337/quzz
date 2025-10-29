@@ -84,6 +84,7 @@ const DEFAULT_CONFIG: Required<
   includeSourceLocation: false,
   throttleMs: 0,
   trackTotalLatency: false,
+  autoLinkParent: true,
   visualizer: {
     enabled: false,
     output: "./traces.json",
