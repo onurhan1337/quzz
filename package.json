@@ -1,6 +1,6 @@
 {
   "name": "quzz",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "description": "Debug React Server Components like a pro. Zero config, instant insights, maximum productivity.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
