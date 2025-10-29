@@ -408,6 +408,71 @@ export async function GET() {
 }
 ```
 
+## New in v0.5.6
+
+### Enhanced Trace Hierarchy Tracking
+
+Significantly improved parent-child relationship tracking for map-rendered and nested async components:
+
+```tsx
+import { withRSCTrace, configure } from "quzz";
+
+// Enable automatic parent linking (enabled by default)
+configure({
+  autoLinkParent: true, // Automatically link child traces to parent
+  visualizer: {
+    enabled: true,
+    output: "./traces.json",
+  },
+});
+
+// Map-rendered components now correctly maintain hierarchy
+const ProductList = withRSCTrace(async function ProductList() {
+  const products = await fetchProducts();
+
+  return (
+    <div>
+      {products.map(product => (
+        <TracedProductCard key={product.id} product={product} />
+      ))}
+    </div>
+  );
+});
+```
+
+**What's improved:**
+
+- ✅ **Map-rendered children** maintain parent relationships in traces.json
+- ✅ **Async nested components** correctly link to parent traces
+- ✅ **Race condition detection** warns when stack operations occur out of order
+- ✅ **Configurable linking** via `autoLinkParent` flag for performance tuning
+
+**Configuration:**
+
+```typescript
+// quzz.config.js
+module.exports = {
+  // Enable/disable automatic parent linking
+  autoLinkParent: true, // Default: true
+
+  // Debug mode to see hierarchy warnings
+  debugContext: true,
+};
+```
+
+When `debugContext` is enabled, you'll see warnings for potential race conditions:
+
+```
+⚠️ [quzz:trace-storage] Stack order mismatch: Expected trace_abc but got trace_xyz (ProductCard).
+   This may indicate a race condition or out-of-order completion in parallel rendering.
+```
+
+**Performance Impact:**
+
+- Overhead: ~10-20μs per trace for parent linking
+- Can be disabled with `autoLinkParent: false` if hierarchy isn't needed
+- Recommended to keep enabled for accurate trace visualization
+
 ## New in v0.4.0
 
 ### 1. Compact Output Format
@@ -777,6 +842,9 @@ withRSCTrace(Component, {
     timing: false, // Skip performance tracking
     errors: false, // Skip error logging
   },
+
+  // Hierarchy tracking (v0.5.6+)
+  autoLinkParent: true, // Automatic parent-child linking in traces
 });
 ```
 

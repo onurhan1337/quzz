@@ -170,14 +170,15 @@ export default {
         <div className="max-w-[900px] mx-auto px-4 relative">
           <div className="max-w-[780px] mx-auto mb-12">
             <h2 className="text-4xl text-center tracking-tight mb-4">
-              <span className="bg-gradient-to-r from-orange-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
-                v0.4.0
+              <span className="bg-gradient-to-r from-orange-900 via-orange-600 to-orange-800 bg-clip-text text-transparent">
+                v0.5.6
               </span>{" "}
-              File-Based Config & More
+              Enhanced Trace Hierarchy
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground text-center">
-              Next.js-style configuration, compact output format, terminal
-              hyperlinks, heap snapshots, and environment variables.
+              Improved parent-child tracking for map-rendered and nested async
+              components. Plus all v0.4.0 features: file-based config, compact
+              output, terminal hyperlinks, and more.
             </p>
           </div>
 
@@ -202,6 +203,24 @@ export default {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* v0.5.6 Features */}
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+              <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <div className="relative">
+                <div className="mb-4 w-12 h-12 rounded-none bg-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Network className="w-6 h-6 text-green-500" />
+                </div>
+                <h3 className="text-xl mb-2">Enhanced hierarchy</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-green-500/10 text-green-500 rounded mb-1">
+                    v0.5.6
+                  </span>{" "}
+                  Map-rendered and async nested components now correctly
+                  maintain parent-child relationships in traces.
+                </p>
+              </div>
+            </div>
+
             {/* v0.4.0 Features */}
             <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
