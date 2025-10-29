@@ -57,13 +57,10 @@ export async function RSCBoundary({
   const perfMonitor = config.performance?.enabled
     ? PerformanceMonitor.getInstance()
     : null;
-  const contextManager =
-    config.enableSnapshots || config.verboseMode
-      ? ContextManager.getInstance({
-          enableSnapshots: true,
-          debugMode: config.debugContext,
-        })
-      : null;
+  const contextManager = ContextManager.getInstance({
+    enableSnapshots: config.enableSnapshots || config.verboseMode,
+    debugMode: config.debugContext,
+  });
 
   const traceId = generateId("boundary");
   const parentTraceId = context?.getCurrentParentId();
@@ -76,11 +73,10 @@ export async function RSCBoundary({
     parentTrace: parentTraceId,
   };
 
-  if (context) {
-    context.startTrace(metadata);
-  }
-
   const executeBoundary = async () => {
+    if (context) {
+      context.startTrace(metadata);
+    }
     const wallClockStart = shouldTrackTotalLatency ? Date.now() : 0;
     const renderStartTime =
       typeof globalThis.performance !== "undefined"

@@ -56,8 +56,26 @@ export class TraceStorage extends BaseAsyncStorage<TraceContext> {
       return;
     }
 
+    const ConfigManager = require("../config").ConfigManager;
+    const config = ConfigManager.getInstance().getConfig();
+    const autoLinkParent = config.autoLinkParent ?? true;
+
+    if (autoLinkParent) {
+      const parentId = context.traceStack[context.traceStack.length - 1];
+      if (parentId && !metadata.parentTrace) {
+        metadata.parentTrace = parentId;
+        this.logDebug(
+          `Linked ${metadata.componentName} (${metadata.traceId}) to parent ${parentId}`
+        );
+      }
+    }
+
     context.traceMap.set(metadata.traceId, metadata);
     context.traceStack.push(metadata.traceId);
+
+    this.logDebug(
+      `Stack push: ${metadata.componentName} (${metadata.traceId}), depth: ${context.traceStack.length}`
+    );
 
     if (context.traceMap.size > this.maxMapSize) {
       this.performCleanup(context);
@@ -68,9 +86,30 @@ export class TraceStorage extends BaseAsyncStorage<TraceContext> {
     const context = this.getStore();
     if (!context) return;
 
-    const index = context.traceStack.indexOf(traceId);
-    if (index !== -1) {
-      context.traceStack.splice(index, 1);
+    const lastId = context.traceStack[context.traceStack.length - 1];
+    if (lastId === traceId) {
+      context.traceStack.pop();
+      this.logDebug(`Stack pop: ${traceId}, depth: ${context.traceStack.length}`);
+    } else {
+      const index = context.traceStack.indexOf(traceId);
+      if (index !== -1) {
+        const trace = context.traceMap.get(traceId);
+        const componentName = trace?.componentName || traceId;
+
+        if (this.debugMode) {
+          console.warn(
+            `[quzz:trace-storage] Stack order mismatch: Expected ${lastId} but got ${traceId} (${componentName}). ` +
+            `This may indicate a race condition or out-of-order completion in parallel rendering.`
+          );
+        }
+
+        context.traceStack.splice(index, 1);
+        this.logDebug(
+          `Stack splice: ${traceId} at index ${index}, depth: ${context.traceStack.length}`
+        );
+      } else {
+        this.logDebug(`Stack miss: ${traceId} not found in stack`);
+      }
     }
 
     if (
@@ -135,6 +174,21 @@ export class TraceStorage extends BaseAsyncStorage<TraceContext> {
   runInNewContext<R>(callback: () => R): R {
     const newContext = this.createDefaultStore();
     return this.run(newContext, callback);
+  }
+
+  runInChildContext<R>(callback: () => R): R {
+    const parentContext = this.getStore();
+    if (!parentContext) {
+      return this.runInNewContext(callback);
+    }
+
+    const childContext: TraceContext = {
+      ...parentContext,
+      traceStack: [...parentContext.traceStack],
+      traceMap: parentContext.traceMap,
+    };
+
+    return this.run(childContext, callback);
   }
 
   private getOrCreateContext(): TraceContext | undefined {
