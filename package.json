@@ -38,14 +38,24 @@
     "debugging",
     "tracing",
     "hoc",
-    "development"
+    "development",
+    "production",
+    "performance",
+    "monitoring",
+    "debugging",
+    "tracing",
+    "hoc"
   ],
-  "author": "Onurhan Demir",
-  "license": "MIT",
+  "homepage": "https://github.com/onurhan1337/quzz",
+  "bugs": {
+    "url": "https://github.com/onurhan1337/quzz/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/onurhan1337/quzz.git"
+    "url": "https://github.com/onurhan1337/quzz"
   },
+  "author": "Onurhan Demir",
+  "license": "MIT",
   "peerDependencies": {
     "next": ">=13.0.0",
     "react": ">=18.0.0"
