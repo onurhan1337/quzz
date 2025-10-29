@@ -167,13 +167,10 @@ export function withRSCTrace<P extends object>(
     const perfMonitor = config.performance?.enabled
       ? PerformanceMonitor.getInstance()
       : null;
-    const contextManager =
-      config.enableSnapshots || config.verboseMode
-        ? ContextManager.getInstance({
-            enableSnapshots: true,
-            debugMode: config.debugContext,
-          })
-        : null;
+    const contextManager = ContextManager.getInstance({
+      enableSnapshots: config.enableSnapshots || config.verboseMode,
+      debugMode: config.debugContext,
+    });
 
     const traceId = generateId("trace");
     const parentTraceId = context?.getCurrentParentId();
@@ -186,11 +183,10 @@ export function withRSCTrace<P extends object>(
       parentTrace: parentTraceId,
     };
 
-    if (context) {
-      context.startTrace(metadata);
-    }
-
     const executeComponent = async () => {
+      if (context) {
+        context.startTrace(metadata);
+      }
       const renderStartTime = performance.now();
 
       if (config.debugContext) {
