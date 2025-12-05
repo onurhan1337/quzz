@@ -34,6 +34,7 @@ export default withRSCTrace(UserProfile);
 ```
 ℹ️ [quzz] UserProfile rendered in 142ms
 Props: { userId: "user_123" }
+Trace: req_ab12.UserProfile#3 (/users?tab=profile)
 ```
 
 ### Custom Component Name

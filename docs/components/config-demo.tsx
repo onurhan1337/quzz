@@ -13,6 +13,7 @@ export function ConfigDemo() {
   const [outputFormat, setOutputFormat] = useState<OutputFormat>("grouped");
   const [performanceEnabled, setPerformanceEnabled] = useState(true);
   const [trackMemory, setTrackMemory] = useState(false);
+  const [includeRouteHint, setIncludeRouteHint] = useState(true);
   const [transport, setTransport] = useState<"console" | "file" | "http">(
     "console"
   );
@@ -24,6 +25,7 @@ export function ConfigDemo() {
 configurePreset('${preset}', {
   outputFormat: '${outputFormat}',
   performance: { enabled: ${performanceEnabled}, trackMemory: ${trackMemory} },
+  traceId: { includeRouteHint: ${includeRouteHint}, maxRouteLength: 80 },
 })`;
     }
 
@@ -39,6 +41,7 @@ configure({
   logLevel: '${logLevel}',
   outputFormat: '${outputFormat}',
   performance: { enabled: ${performanceEnabled}, trackMemory: ${trackMemory} },
+  traceId: { includeRouteHint: ${includeRouteHint}, maxRouteLength: 80 },
   transports: [${
     transport === "console"
       ? "createConsoleTransport()"
@@ -53,23 +56,28 @@ configure({
     outputFormat,
     performanceEnabled,
     trackMemory,
+    includeRouteHint,
     transport,
   ]);
 
   const preview = useMemo(() => {
+    const traceId = includeRouteHint
+      ? "req_ab12.UserProfile#3 (/products?tag=summer)"
+      : "req_ab12.UserProfile#3";
     if (outputFormat === "json") {
       return `{
   "level": "${logLevel}",
+  "traceId": "${traceId}",
   "component": "UserProfile",
   "duration": 142,
   "memory": ${performanceEnabled && trackMemory ? '"45.2 MB"' : null},
-  "traceId": "trace_x1y2z3"
+  "route": ${includeRouteHint ? '"(/products?tag=summer)"' : "null"}
 }`;
     }
 
     if (outputFormat === "grouped") {
       return `INFO UserProfile Rendering completed in 142ms
-trace: trace_x1y2z3
+trace: ${traceId}
 duration: 142.00ms
 ${performanceEnabled && trackMemory ? "memory: 45.2MB\n" : ""}props: {"userId":"user_123"}`;
     }
@@ -78,8 +86,15 @@ ${performanceEnabled && trackMemory ? "memory: 45.2MB\n" : ""}props: {"userId":"
       outputFormat === "compact" ? "✓" : logLevel === "debug" ? "🔍" : "ℹ️";
     const memory =
       performanceEnabled && trackMemory ? " (45MB) High memory usage" : "";
-    return `${badge} [quzz] UserProfile rendered in 142ms${memory}`;
-  }, [logLevel, outputFormat, performanceEnabled, trackMemory]);
+    return `${badge} [quzz] UserProfile rendered in 142ms${memory}
+trace: ${traceId}`;
+  }, [
+    logLevel,
+    outputFormat,
+    performanceEnabled,
+    trackMemory,
+    includeRouteHint,
+  ]);
 
   const pill = (active: boolean) =>
     `rounded-full border px-3 py-2 text-[13px] font-medium transition ${
@@ -232,6 +247,25 @@ ${performanceEnabled && trackMemory ? "memory: 45.2MB\n" : ""}props: {"userId":"
                   title="Track heap deltas and warn on high memory usage"
                 />
                 <span className="text-sm text-slate-800">Memory tracking</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-600">
+                Trace ID
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={includeRouteHint}
+                  onChange={() => {
+                    setIncludeRouteHint(!includeRouteHint);
+                    setPreset("custom");
+                  }}
+                  className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
+                  title="Append route hint when available"
+                />
+                <span className="text-sm text-slate-800">Route hint</span>
               </div>
             </div>
 

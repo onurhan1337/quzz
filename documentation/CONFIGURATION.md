@@ -164,6 +164,26 @@ module.exports = {
 - `json`: JSON-formatted logs for parsing
 - `grouped`: Grouped multi-line logs without ANSI
 
+#### `traceId`
+
+- **Type:** `{ mode?: "structured" | "random"; includeRouteHint?: boolean; maxRouteLength?: number; maxSearchParamsLength?: number; maxIdLength?: number }`
+- **Default:** `{ mode: "structured", includeRouteHint: true, maxRouteLength: 120, maxSearchParamsLength: 80, maxIdLength: 180 }`
+- **Description:** Controls trace ID shape and route hint inclusion
+
+```javascript
+module.exports = {
+  traceId: {
+    mode: "structured",
+    includeRouteHint: true,
+    maxRouteLength: 120,
+    maxSearchParamsLength: 80,
+    maxIdLength: 180,
+  },
+};
+```
+
+Per-component route hints can be supplied via `withRSCTrace(Component, { routeHint: "/products?tag=summer" })`. Set `includeRouteHint: false` to disable.
+
 #### Transports
 
 Send logs to multiple destinations:
