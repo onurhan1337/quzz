@@ -4,9 +4,13 @@ import type {
   QuzzConfig,
   TraceMetadata,
   SerializedError,
+  FileTransportOptions,
+  HttpTransportOptions,
+  LogTransport,
 } from "./types";
 import { ConfigManager } from "./config";
 import { getFormatter } from "./formatters";
+import { appendFile } from "fs";
 
 /**
  * Log level priorities for filtering
@@ -210,4 +214,75 @@ class Logger {
   }
 }
 
-export { Logger };
+function createConsoleTransport(): LogTransport {
+  return (entry, formatted) => {
+    const method =
+      entry.level === "error"
+        ? console.error
+        : entry.level === "warn"
+          ? console.warn
+          : console.log;
+    method(formatted);
+  };
+}
+
+function createFileTransport(options: FileTransportOptions): LogTransport {
+  const buffer: string[] = [];
+  let flushing = false;
+  const flushInterval = options.flushIntervalMs ?? 500;
+  const flush = () => {
+    if (flushing || buffer.length === 0) return;
+    flushing = true;
+    const payload = buffer.splice(0, buffer.length).join("\n") + "\n";
+    appendFile(options.path, payload, () => {
+      flushing = false;
+    });
+  };
+  setInterval(flush, flushInterval).unref();
+  return (_, formatted) => {
+    buffer.push(formatted);
+    if (buffer.length >= 20) {
+      flush();
+    }
+  };
+}
+
+function createHttpTransport(options: HttpTransportOptions): LogTransport {
+  const queue: string[] = [];
+  let flushing = false;
+  const batchSize = options.batchSize ?? 10;
+  const flushInterval = options.flushIntervalMs ?? 1000;
+  const method = options.method ?? "POST";
+  const flush = async () => {
+    if (flushing || queue.length === 0) return;
+    if (typeof fetch !== "function") return;
+    flushing = true;
+    const batch = queue.splice(0, batchSize);
+    try {
+      await fetch(options.url, {
+        method,
+        headers: {
+          "content-type": "application/json",
+          ...(options.headers || {}),
+        },
+        body: `[${batch.join(",")}]`,
+      });
+    } finally {
+      flushing = false;
+    }
+  };
+  setInterval(flush, flushInterval).unref();
+  return (_, formatted) => {
+    queue.push(formatted);
+    if (queue.length >= batchSize) {
+      flush();
+    }
+  };
+}
+
+export {
+  Logger,
+  createConsoleTransport,
+  createFileTransport,
+  createHttpTransport,
+};

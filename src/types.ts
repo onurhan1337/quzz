@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 
 export type LogLevel = "silent" | "error" | "warn" | "info" | "debug" | "trace";
-export type OutputFormat = "pretty" | "json" | "compact" | "custom";
+export type OutputFormat = "pretty" | "json" | "compact" | "grouped" | "custom";
 
 /**
  * Valid log levels for type-safe validation
@@ -22,6 +22,7 @@ export const VALID_OUTPUT_FORMATS: readonly OutputFormat[] = [
   "pretty",
   "json",
   "compact",
+  "grouped",
 ] as const;
 
 /**
@@ -36,6 +37,17 @@ export type LogTransport = (
   entry: LogEntry,
   formatted: string
 ) => void | Promise<void>;
+export interface FileTransportOptions {
+  path: string;
+  flushIntervalMs?: number;
+}
+export interface HttpTransportOptions {
+  url: string;
+  headers?: Record<string, string>;
+  batchSize?: number;
+  flushIntervalMs?: number;
+  method?: "POST" | "PUT";
+}
 
 /**
  * Plugin hook for intercepting trace lifecycle
@@ -50,6 +62,8 @@ export interface TracePlugin {
   ) => void | Promise<void>;
   onPropsCapture?: (props: Record<string, unknown>) => Record<string, unknown>;
 }
+export type QuzzPresetName = "debug" | "perf" | "minimal";
+export type QuzzPreset = QuzzConfig;
 
 /**
  * Performance metrics configuration

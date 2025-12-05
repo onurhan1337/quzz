@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Info } from "lucide-react";
 
 type LogLevel = "info" | "debug" | "warn" | "error";
+type OutputFormat = "pretty" | "compact" | "grouped";
 
 interface Log {
   level: LogLevel;
@@ -142,6 +143,7 @@ export function QuzzDemo() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [showData, setShowData] = useState(true);
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>("pretty");
 
   const runDemo = () => {
     setIsRunning(true);
@@ -163,93 +165,140 @@ export function QuzzDemo() {
 
   const displayedLogs = DEMO_SCENARIOS[scenario].slice(0, currentIndex);
 
+  const formattedLogs = useMemo(
+    () =>
+      displayedLogs.map((log) => {
+        if (outputFormat === "compact") {
+          return `${log.component}: ${log.message} [${log.level.toUpperCase()}]`;
+        }
+        if (outputFormat === "grouped") {
+          const rows = [
+            `${log.level.toUpperCase()} ${log.component} ${log.message}`,
+          ];
+          if (log.data) {
+            rows.push(`data: ${JSON.stringify(log.data)}`);
+          }
+          return rows.join("\n");
+        }
+        return `${LOG_ICONS[log.level]} [${log.component}] ${log.message}`;
+      }),
+    [displayedLogs, outputFormat]
+  );
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex-1 min-w-[200px] max-w-[280px]">
-          <label className="block text-sm font-medium mb-2">Scenario</label>
-          <select
-            value={scenario}
-            onChange={(e) => {
-              setScenario(e.target.value as keyof typeof DEMO_SCENARIOS);
-              setCurrentIndex(0);
-            }}
-            disabled={isRunning}
-            className="w-full h-10 px-3 py-2 border border-input bg-background rounded-md text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <option value="basic">Basic Logging</option>
-            <option value="performance">Performance Tracking</option>
-            <option value="error">Error Handling</option>
-            <option value="nested">Nested Components</option>
-          </select>
-          <label className="mt-2 flex items-center gap-2 text-sm font-medium cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={showData}
-              onChange={(e) => setShowData(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            Show data
-          </label>
+      <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 shadow-2xl shadow-black/40 backdrop-blur p-6">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+          <div className="space-y-1">
+            <div className="text-sm text-muted-foreground">Scenario</div>
+            <select
+              value={scenario}
+              onChange={(e) => {
+                setScenario(e.target.value as keyof typeof DEMO_SCENARIOS);
+                setCurrentIndex(0);
+              }}
+              disabled={isRunning}
+              className="w-56 h-10 px-3 py-2 border border-white/10 bg-slate-900/70 text-slate-100 rounded-md text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="basic">Basic Logging</option>
+              <option value="performance">Performance Tracking</option>
+              <option value="error">Error Handling</option>
+              <option value="nested">Nested Components</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <div className="text-sm text-muted-foreground">Format</div>
+            <div className="flex gap-2">
+              {(["pretty", "compact", "grouped"] as OutputFormat[]).map(
+                (f) => (
+                  <button
+                    key={f}
+                    onClick={() => setOutputFormat(f)}
+                    className={`px-3 py-2 rounded-lg border text-sm transition ${
+                      outputFormat === f
+                        ? "border-white/60 bg-white/10 text-white"
+                        : "border-white/10 bg-white/5 text-slate-200 hover:border-white/40"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showData}
+                onChange={(e) => setShowData(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              Show data
+            </label>
+            <button
+              onClick={runDemo}
+              disabled={isRunning}
+              className="flex items-center rounded-lg gap-2 px-4 py-2 h-10 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <PlayIcon />
+              {isRunning ? "Running..." : "Run demo"}
+            </button>
+          </div>
         </div>
 
-        <button
-          onClick={runDemo}
-          disabled={isRunning}
-          className="flex items-center rounded-none gap-2 px-4 py-2 h-10 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          <PlayIcon />
-          {isRunning ? "Running..." : "Run Demo"}
-        </button>
+          <div className="flex items-center gap-2 text-sm text-slate-200">
+            <Info className="w-4 h-4 text-white/70" />
+          <span>
+            Logs render here and in the console; format selection mirrors real
+            transport behavior.
+          </span>
+        </div>
       </div>
 
-      <div className="bg-muted/50 rounded-lg p-4 font-mono text-sm min-h-[240px] max-h-[400px] overflow-y-auto border">
-        {displayedLogs.length === 0 ? (
-          <div className="text-muted-foreground text-center py-16">
-            Select a scenario and click &quot;Run Demo&quot; to see quzz logging
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {displayedLogs.map((log, index) => (
-              <div key={index} className="space-y-1">
-                <div className="flex items-start gap-2">
-                  <span
-                    className={`inline-flex items-center justify-center w-5 h-5 rounded flex-shrink-0 ${
-                      LOG_COLORS[log.level]
-                    } font-bold text-xs`}
-                  >
-                    {LOG_ICONS[log.level]}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <span className="font-semibold">{log.component}</span>
-                    <span className="text-muted-foreground"> → </span>
-                    <span>{log.message}</span>
-                  </div>
-                </div>
-                {showData && log.data && (
-                  <div className="ml-7 text-xs bg-background/50 rounded p-2 border">
-                    {Object.entries(log.data).map(([key, value]) => (
-                      <div key={key} className="flex gap-2">
-                        <span className="text-muted-foreground">{key}:</span>
-                        <span className="font-medium">{String(value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+      <div className="grid gap-3">
+        {displayedLogs.length === 0 && (
+          <div className="text-sm text-muted-foreground">
+            Start a scenario to see the logs here.
           </div>
         )}
+
+        {displayedLogs.map((log, index) => (
+          <div
+            key={`${log.component}-${index}`}
+            className={`p-4 rounded-xl border shadow-sm ${LOG_COLORS[log.level]} bg-gradient-to-br from-white/5 via-white/2 to-transparent backdrop-blur`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <div className="text-sm font-semibold flex items-center gap-2">
+                  <span className="font-bold">{LOG_ICONS[log.level]}</span>
+                  {log.component}
+                </div>
+                <div className="text-sm whitespace-pre-wrap">
+                  {formattedLogs[index]}
+                </div>
+              </div>
+              <span className="text-[11px] px-2 py-1 rounded-full bg-black/5 dark:bg-white/10">
+                {log.level}
+              </span>
+            </div>
+
+            {showData && log.data && (
+              <pre className="text-xs bg-white/50 dark:bg-black/20 rounded p-2 mt-3 overflow-x-auto">
+                {JSON.stringify(log.data, null, 2)}
+              </pre>
+            )}
+          </div>
+        ))}
       </div>
 
-      <div className="flex gap-2 text-sm text-muted-foreground bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg p-3">
-        <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
+      <div className="flex gap-2 text-sm text-slate-200 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border border-white/10 rounded-lg p-3 shadow-lg shadow-black/30">
+        <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-white/70" />
         <div>
-          <strong className="text-blue-900 dark:text-blue-100">Note:</strong>{" "}
-          This is a client-side simulation for demonstration. The actual quzz
-          package is designed for <strong>React Server Components</strong> and
-          logs to your <strong>Node.js terminal</strong> during server-side
-          rendering.
+          This block is a client-side simulation. In real usage quzz logs during
+          RSC render to the Node.js terminal and any transports you configure.
         </div>
       </div>
     </div>

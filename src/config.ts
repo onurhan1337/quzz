@@ -4,6 +4,8 @@ import type {
   EnvConfig,
   LogLevel,
   OutputFormat,
+  QuzzPresetName,
+  QuzzPreset,
 } from "./types";
 import { VALID_LOG_LEVELS, VALID_OUTPUT_FORMATS } from "./types";
 import { ConfigValidator, validateEnvironment } from "./validators";
@@ -60,9 +62,9 @@ const DEFAULT_CONFIG: Required<
   outputFormat: "pretty",
   performance: {
     enabled: false,
-    warnThreshold: 1000,
+    warnThreshold: 750,
     trackMemory: false,
-    memoryThreshold: 50 * 1024 * 1024, // 50MB
+    memoryThreshold: 30 * 1024 * 1024,
     aggregate: false,
     enableHeapSnapshots: false,
     heapSnapshotDir: "./heap-snapshots",
@@ -94,6 +96,81 @@ const DEFAULT_CONFIG: Required<
   verboseMode: false,
   suppressConfigWarnings: false,
   enableHyperlinks: true,
+};
+const PRESETS: Record<QuzzPresetName, QuzzPreset> = {
+  debug: {
+    logLevel: "debug",
+    outputFormat: "pretty",
+    logProps: true,
+    performance: {
+      enabled: true,
+      warnThreshold: 500,
+      trackMemory: false,
+      aggregate: false,
+      enableHeapSnapshots: false,
+    },
+    props: {
+      awaitProps: false,
+      showPromiseTypes: true,
+    },
+    visualizer: {
+      enabled: true,
+    },
+    debugContext: true,
+    enableSnapshots: true,
+    verboseMode: true,
+    throttleMs: 0,
+    enableHyperlinks: true,
+  },
+  perf: {
+    logLevel: "info",
+    outputFormat: "compact",
+    logProps: false,
+    performance: {
+      enabled: true,
+      warnThreshold: 600,
+      trackMemory: true,
+      memoryThreshold: 30 * 1024 * 1024,
+      aggregate: true,
+      enableHeapSnapshots: false,
+    },
+    props: {
+      awaitProps: false,
+      showPromiseTypes: false,
+    },
+    visualizer: {
+      enabled: false,
+    },
+    debugContext: false,
+    enableSnapshots: false,
+    verboseMode: false,
+    throttleMs: 50,
+    enableHyperlinks: true,
+  },
+  minimal: {
+    logLevel: "warn",
+    outputFormat: "compact",
+    logProps: false,
+    performance: {
+      enabled: false,
+      warnThreshold: 750,
+      trackMemory: false,
+      aggregate: false,
+      enableHeapSnapshots: false,
+    },
+    props: {
+      awaitProps: false,
+      showPromiseTypes: false,
+    },
+    visualizer: {
+      enabled: false,
+    },
+    debugContext: false,
+    enableSnapshots: false,
+    verboseMode: false,
+    throttleMs: 100,
+    enableHyperlinks: true,
+  },
 };
 
 /**
@@ -403,6 +480,41 @@ export function getConfig(): QuzzConfig {
  */
 export function resetConfig(): void {
   ConfigManager.getInstance().reset();
+}
+
+export function configurePreset(
+  name: QuzzPresetName,
+  overrides?: Partial<QuzzConfig>
+): void {
+  const preset = PRESETS[name];
+  if (!preset) {
+    throw new Error(`Unknown preset: ${name}`);
+  }
+  const merged: QuzzConfig = {
+    ...preset,
+    ...overrides,
+    performance: {
+      ...preset.performance,
+      ...overrides?.performance,
+    },
+    props: {
+      ...preset.props,
+      ...overrides?.props,
+    },
+    visualizer: {
+      ...preset.visualizer,
+      ...overrides?.visualizer,
+    },
+  };
+  ConfigManager.getInstance().configure(merged);
+}
+
+export function defineConfig(config: QuzzConfig): QuzzConfig {
+  return config;
+}
+
+export function getPresets(): Record<QuzzPresetName, QuzzPreset> {
+  return { ...PRESETS };
 }
 
 export { ConfigManager };

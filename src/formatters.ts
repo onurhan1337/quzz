@@ -256,6 +256,46 @@ export function compactFormatter(entry: LogEntry): string {
 
   return output;
 }
+export function groupedFormatter(entry: LogEntry): string {
+  const time = formatTimestamp(entry.timestamp);
+  const header = `${entry.level.toUpperCase()} ${entry.componentName}`;
+  const lines = [`${time} ${header} ${entry.message}`];
+  if (entry.tags && entry.tags.length > 0) {
+    lines.push(`tags: ${entry.tags.join(", ")}`);
+  }
+  if (entry.metadata) {
+    if (entry.metadata.traceId) {
+      lines.push(`trace: ${entry.metadata.traceId}`);
+    }
+    if (entry.metadata.parentTrace) {
+      lines.push(`parent: ${entry.metadata.parentTrace}`);
+    }
+    if (entry.metadata.duration !== undefined) {
+      lines.push(`duration: ${entry.metadata.duration.toFixed(2)}ms`);
+    }
+    if (entry.metadata.wallClockTime !== undefined) {
+      lines.push(`wallClock: ${entry.metadata.wallClockTime.toFixed(2)}ms`);
+    }
+    if (entry.metadata.waitTime !== undefined) {
+      lines.push(`wait: ${entry.metadata.waitTime.toFixed(2)}ms`);
+    }
+    if (entry.metadata.memory) {
+      lines.push(
+        `memory: ${(entry.metadata.memory.heapUsed / 1024 / 1024).toFixed(2)}MB`
+      );
+    }
+    if (entry.metadata.props && Object.keys(entry.metadata.props).length > 0) {
+      lines.push(`props: ${JSON.stringify(entry.metadata.props)}`);
+    }
+  }
+  if (entry.error) {
+    lines.push(`error: ${entry.error.name}: ${entry.error.message}`);
+    if (entry.error.digest) {
+      lines.push(`digest: ${entry.error.digest}`);
+    }
+  }
+  return lines.join("\n");
+}
 
 /**
  * Get formatter by output format
@@ -268,6 +308,8 @@ export function getFormatter(
       return jsonFormatter;
     case "compact":
       return compactFormatter;
+    case "grouped":
+      return groupedFormatter;
     case "pretty":
     default:
       return prettyFormatter;

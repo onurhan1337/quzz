@@ -12,11 +12,11 @@ Create a configuration file in your project root. quzz automatically loads it on
 
 In priority order:
 
-- `quzz.config.ts` - TypeScript (requires async loading)
-- `quzz.config.mts` - TypeScript ESM (requires async loading)
-- `quzz.config.cts` - TypeScript CommonJS (requires async loading)
-- `quzz.config.mjs` - JavaScript ESM (requires async loading)
-- `quzz.config.js` - JavaScript CommonJS (**recommended** for immediate loading)
+- `quzz.config.ts` - TypeScript
+- `quzz.config.mts` - TypeScript ESM
+- `quzz.config.cts` - TypeScript CommonJS
+- `quzz.config.mjs` - JavaScript ESM
+- `quzz.config.js` - JavaScript CommonJS (**recommended**)
 - `quzz.config.cjs` - JavaScript CommonJS explicit
 
 #### JavaScript Configuration (Recommended)
@@ -53,21 +53,20 @@ module.exports = {
 
 ```typescript
 // quzz.config.ts
-import type { QuzzConfig } from 'quzz';
+import { defineConfig } from "quzz";
 
-const config: QuzzConfig = {
-  logLevel: "info",
-  outputFormat: "compact",
+export default defineConfig({
+  logLevel: "debug",
+  outputFormat: "grouped",
   performance: {
     enabled: true,
     warnThreshold: 500,
   },
-};
-
-export default config;
+  visualizer: { enabled: true },
+});
 ```
 
-**Note:** TypeScript and ESM config files (`.ts`, `.mts`, `.mjs`) require asynchronous module loading. For immediate loading at startup, use `.js` or `.cjs` with CommonJS syntax.
+**Note:** TypeScript config loading requires `typescript` to be available in your project.
 
 ### 2. Programmatic Configuration
 
@@ -88,6 +87,20 @@ if (process.env.NODE_ENV === "development") {
   });
 }
 ```
+
+Or pick a preset:
+
+```typescript
+import { configurePreset } from "quzz";
+
+configurePreset("debug");
+```
+
+### Presets
+
+- `debug`: verbose logs, props, snapshots, visualizer on, perf warnings at 500ms.
+- `perf`: compact logs, performance and memory tracking, throttled output.
+- `minimal`: warnings only, minimal overhead.
 
 ### 3. Environment Variables
 
@@ -123,7 +136,7 @@ Settings are merged in this order (highest priority last):
 #### `logLevel`
 
 - **Type:** `"debug" | "info" | "warn" | "error" | "silent"`
-- **Default:** `"info"`
+- **Default:** `"error"`
 - **Description:** Minimum log level to display
 
 ```javascript
@@ -134,13 +147,13 @@ module.exports = {
 
 #### `outputFormat`
 
-- **Type:** `"pretty" | "compact" | "json"`
+- **Type:** `"pretty" | "compact" | "json" | "grouped" | "custom"`
 - **Default:** `"pretty"`
 - **Description:** Output format for logs
 
 ```javascript
 module.exports = {
-  outputFormat: "compact", // Single-line logs
+  outputFormat: "grouped",
 };
 ```
 
@@ -149,6 +162,31 @@ module.exports = {
 - `pretty`: Multi-line, detailed logs
 - `compact`: Single-line logs (e.g., `BlogPost: 4.79ms (620MB) ✓`)
 - `json`: JSON-formatted logs for parsing
+- `grouped`: Grouped multi-line logs without ANSI
+
+#### Transports
+
+Send logs to multiple destinations:
+
+```typescript
+import {
+  configure,
+  createConsoleTransport,
+  createFileTransport,
+  createHttpTransport,
+} from "quzz";
+
+configure({
+  outputFormat: "json",
+  transports: [
+    createConsoleTransport(),
+    createFileTransport({ path: "./quzz.log" }),
+    createHttpTransport({ url: "https://logs.example.com/ingest" }),
+  ],
+});
+```
+
+- `grouped`: Grouped multi-line logs without ANSI
 
 #### `forceEnable`
 
@@ -169,13 +207,13 @@ module.exports = {
 #### `performance.enabled`
 
 - **Type:** `boolean`
-- **Default:** `true`
+- **Default:** `false`
 - **Description:** Enable performance tracking
 
 #### `performance.warnThreshold`
 
 - **Type:** `number` (milliseconds)
-- **Default:** `1000`
+- **Default:** `750`
 - **Description:** Warn when component render exceeds threshold
 
 ```javascript
@@ -190,13 +228,13 @@ module.exports = {
 #### `performance.trackMemory`
 
 - **Type:** `boolean`
-- **Default:** `true`
+- **Default:** `false`
 - **Description:** Track memory usage (Node.js only)
 
 #### `performance.memoryThreshold`
 
 - **Type:** `number` (bytes)
-- **Default:** `100 * 1024 * 1024` (100MB)
+- **Default:** `30 * 1024 * 1024` (30MB)
 - **Description:** Threshold for memory warnings
 
 #### `performance.enableHeapSnapshots`

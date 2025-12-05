@@ -19,6 +19,7 @@ Traditional debugging tools like React DevTools don't work with React Server Com
 - **Multiple output formats** - Pretty, compact, or JSON
 - **Production-safe** - Automatically disabled in production, zero overhead
 - **TypeScript support** - Fully typed configuration and APIs
+- **Presets and type-safe config** - `configurePreset` and `defineConfig` for fast setup
 
 ## Installation
 
@@ -39,6 +40,14 @@ async function UserProfile({ userId }: { userId: string }) {
 }
 
 export default withRSCTrace(UserProfile);
+```
+
+Prefer presets for zero thinking:
+
+```ts
+import { configurePreset } from "quzz";
+
+configurePreset("debug");
 ```
 
 Terminal output:
@@ -65,7 +74,25 @@ module.exports = {
 };
 ```
 
+Type-safe config file:
+
+```ts
+import { defineConfig } from "quzz";
+
+export default defineConfig({
+  logLevel: "debug",
+  outputFormat: "grouped",
+  performance: { enabled: true, warnThreshold: 500 },
+  visualizer: { enabled: true },
+});
+```
+
 Configuration is automatically loaded. See [full configuration guide](./documentation/CONFIGURATION.md) for all options.
+
+### Logging formats and transports
+
+- Formats: `pretty`, `compact`, `json`, `grouped`, or a custom formatter.
+- Transports: use `createConsoleTransport`, `createFileTransport`, or `createHttpTransport`, or provide your own.
 
 ## Documentation
 

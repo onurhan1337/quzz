@@ -1,7 +1,8 @@
 import { pathToFileURL } from "url";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { resolve, join } from "path";
 import type { QuzzConfig } from "./types";
+import { createRequire } from "module";
 
 const CONFIG_FILES = [
   "quzz.config.ts",
@@ -68,6 +69,54 @@ async function loadEsmConfig(filepath: string): Promise<QuzzConfig | null> {
   }
 }
 
+function loadTranspiledConfig(filepath: string): QuzzConfig | null {
+  try {
+    const ts = require("typescript");
+    const source = readFileSync(filepath, "utf8");
+    const transpiled = ts.transpileModule(source, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2019,
+        esModuleInterop: true,
+        allowJs: true,
+        moduleResolution: ts.ModuleResolutionKind.NodeJs,
+      },
+      fileName: filepath,
+    });
+    const requireFn = createRequire(filepath);
+    const moduleExports = { exports: {} as Record<string, unknown> };
+    const fn = new Function(
+      "exports",
+      "require",
+      "module",
+      "__filename",
+      "__dirname",
+      transpiled.outputText
+    );
+    fn(
+      moduleExports.exports,
+      requireFn,
+      moduleExports,
+      filepath,
+      join(filepath, "..")
+    );
+    const config =
+      (moduleExports.exports as any).default ||
+      (moduleExports.exports as any).config ||
+      moduleExports.exports;
+    if (!config || typeof config !== "object") {
+      console.warn(
+        `[quzz] Config file found at ${filepath} but no valid config exported`
+      );
+      return null;
+    }
+    return config as QuzzConfig;
+  } catch (error) {
+    console.error(`[quzz] Failed to load config file: ${filepath}`, error);
+    return null;
+  }
+}
+
 /**
  * Load CommonJS config file (.js, .cjs)
  */
@@ -111,17 +160,8 @@ export function loadConfigFromFile(): QuzzConfig | null {
     const ext = configFile.slice(configFile.lastIndexOf("."));
 
     if (ext === ".mjs" || ext === ".mts" || ext === ".ts" || ext === ".cts") {
-      console.warn(
-        `[quzz] Found ${configFile} but ESM/TypeScript files require async loading.\n` +
-          `Recommendation: Use quzz.config.js or quzz.config.cjs with CommonJS syntax for immediate loading,\n` +
-          `or accept the async behavior. The config will be loaded asynchronously in the background.`
-      );
-
-      loadEsmConfig(configFile).catch((err) => {
-        console.error(`[quzz] Failed to load config asynchronously:`, err);
-      });
-
-      return null;
+      console.log(`[quzz] Loading config from: ${configFile}`);
+      return loadTranspiledConfig(configFile);
     }
 
     console.log(`[quzz] Loading config from: ${configFile}`);
@@ -150,7 +190,7 @@ export async function loadConfigFromFileAsync(): Promise<QuzzConfig | null> {
     const ext = configFile.slice(configFile.lastIndexOf("."));
 
     if (ext === ".mjs" || ext === ".mts" || ext === ".ts" || ext === ".cts") {
-      return await loadEsmConfig(configFile);
+      return loadTranspiledConfig(configFile);
     } else {
       return loadCjsConfig(configFile);
     }

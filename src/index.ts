@@ -40,7 +40,14 @@ export { VALID_LOG_LEVELS, VALID_OUTPUT_FORMATS } from "./types";
 export type { SanitizePropsConfig } from "./utils";
 export { safeStringify } from "./utils";
 
-export { configure, getConfig, resetConfig } from "./config";
+export {
+  configure,
+  getConfig,
+  resetConfig,
+  configurePreset,
+  defineConfig,
+  getPresets,
+} from "./config";
 export {
   hasConfigFile,
   getConfigFilePath,
@@ -50,6 +57,11 @@ export { PerformanceMonitor } from "./performance";
 export { TraceContext } from "./context";
 export { RSCBoundary } from "./boundary";
 export { TraceCollector } from "./visualizer/trace-collector";
+export {
+  createConsoleTransport,
+  createFileTransport,
+  createHttpTransport,
+} from "./logger";
 export type {
   CollectedTrace,
   TraceSession,
