@@ -120,8 +120,8 @@ const logToConsole = (log: Log) => {
       log.level === "error"
         ? "#dc2626"
         : log.level === "warn"
-        ? "#d97706"
-        : "#374151"
+          ? "#d97706"
+          : "#374151"
     };`,
     "color: #374151;"
   );
@@ -187,7 +187,7 @@ export function QuzzDemo() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 shadow-2xl shadow-black/40 backdrop-blur p-6">
+      <div className="rounded-none border border-slate-200 bg-white shadow-inner p-6">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
           <div className="space-y-1">
             <div className="text-sm text-muted-foreground">Scenario</div>
@@ -198,7 +198,7 @@ export function QuzzDemo() {
                 setCurrentIndex(0);
               }}
               disabled={isRunning}
-              className="w-56 h-10 px-3 py-2 border border-white/10 bg-slate-900/70 text-slate-100 rounded-md text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-56 h-10 px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-md text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-slate-200 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <option value="basic">Basic Logging</option>
               <option value="performance">Performance Tracking</option>
@@ -210,21 +210,19 @@ export function QuzzDemo() {
           <div className="space-y-1">
             <div className="text-sm text-muted-foreground">Format</div>
             <div className="flex gap-2">
-              {(["pretty", "compact", "grouped"] as OutputFormat[]).map(
-                (f) => (
-                  <button
-                    key={f}
-                    onClick={() => setOutputFormat(f)}
-                    className={`px-3 py-2 rounded-lg border text-sm transition ${
-                      outputFormat === f
-                        ? "border-white/60 bg-white/10 text-white"
-                        : "border-white/10 bg-white/5 text-slate-200 hover:border-white/40"
-                    }`}
-                  >
-                    {f}
-                  </button>
-                )
-              )}
+              {(["pretty", "compact", "grouped"] as OutputFormat[]).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setOutputFormat(f)}
+                  className={`px-3 py-2 rounded-lg border text-sm transition ${
+                    outputFormat === f
+                      ? "border-neutral-900 bg-neutral-900 text-neutral-100"
+                      : "border-neutral-200 bg-neutral-100 text-neutral-700 hover:border-neutral-300"
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -241,7 +239,7 @@ export function QuzzDemo() {
             <button
               onClick={runDemo}
               disabled={isRunning}
-              className="flex items-center rounded-lg gap-2 px-4 py-2 h-10 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center rounded-none gap-2 px-4 py-2 h-10 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm tracking-tight"
             >
               <PlayIcon />
               {isRunning ? "Running..." : "Run demo"}
@@ -249,8 +247,8 @@ export function QuzzDemo() {
           </div>
         </div>
 
-          <div className="flex items-center gap-2 text-sm text-slate-200">
-            <Info className="w-4 h-4 text-white/70" />
+        <div className="flex items-center gap-2 text-sm tracking-tight text-slate-700">
+          <Info className="w-4 h-4 text-neutral-500" />
           <span>
             Logs render here and in the console; format selection mirrors real
             transport behavior.
@@ -268,7 +266,7 @@ export function QuzzDemo() {
         {displayedLogs.map((log, index) => (
           <div
             key={`${log.component}-${index}`}
-            className={`p-4 rounded-xl border shadow-sm ${LOG_COLORS[log.level]} bg-gradient-to-br from-white/5 via-white/2 to-transparent backdrop-blur`}
+            className={`p-4 rounded-xl border shadow-sm ${LOG_COLORS[log.level]} border-slate-200 bg-white`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
@@ -294,8 +292,8 @@ export function QuzzDemo() {
         ))}
       </div>
 
-      <div className="flex gap-2 text-sm text-slate-200 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border border-white/10 rounded-lg p-3 shadow-lg shadow-black/30">
-        <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-white/70" />
+      <div className="flex gap-2 text-sm text-slate-700 bg-white border border-slate-200 rounded-lg p-3 shadow-md">
+        <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-slate-500" />
         <div>
           This block is a client-side simulation. In real usage quzz logs during
           RSC render to the Node.js terminal and any transports you configure.
