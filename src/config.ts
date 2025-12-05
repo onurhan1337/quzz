@@ -96,6 +96,13 @@ const DEFAULT_CONFIG: Required<
   verboseMode: false,
   suppressConfigWarnings: false,
   enableHyperlinks: true,
+  traceId: {
+    mode: "structured",
+    includeRouteHint: true,
+    maxRouteLength: 120,
+    maxSearchParamsLength: 80,
+    maxIdLength: 180,
+  },
 };
 const PRESETS: Record<QuzzPresetName, QuzzPreset> = {
   debug: {
@@ -121,6 +128,13 @@ const PRESETS: Record<QuzzPresetName, QuzzPreset> = {
     verboseMode: true,
     throttleMs: 0,
     enableHyperlinks: true,
+    traceId: {
+      mode: "structured",
+      includeRouteHint: true,
+      maxRouteLength: 120,
+      maxSearchParamsLength: 80,
+      maxIdLength: 180,
+    },
   },
   perf: {
     logLevel: "info",
@@ -146,6 +160,13 @@ const PRESETS: Record<QuzzPresetName, QuzzPreset> = {
     verboseMode: false,
     throttleMs: 50,
     enableHyperlinks: true,
+    traceId: {
+      mode: "structured",
+      includeRouteHint: true,
+      maxRouteLength: 120,
+      maxSearchParamsLength: 80,
+      maxIdLength: 180,
+    },
   },
   minimal: {
     logLevel: "warn",
@@ -170,6 +191,13 @@ const PRESETS: Record<QuzzPresetName, QuzzPreset> = {
     verboseMode: false,
     throttleMs: 100,
     enableHyperlinks: true,
+    traceId: {
+      mode: "structured",
+      includeRouteHint: true,
+      maxRouteLength: 120,
+      maxSearchParamsLength: 80,
+      maxIdLength: 180,
+    },
   },
 };
 
@@ -203,12 +231,19 @@ class ConfigManager {
           ...DEFAULT_CONFIG.visualizer,
           ...fileConfig.visualizer,
         },
+        traceId: {
+          ...DEFAULT_CONFIG.traceId,
+          ...fileConfig.traceId,
+        },
       };
     } else {
       // No file config, merge defaults with env vars
       this.config = {
         ...DEFAULT_CONFIG,
         ...envConfig,
+        traceId: {
+          ...DEFAULT_CONFIG.traceId,
+        },
       };
     }
   }
@@ -263,6 +298,10 @@ class ConfigManager {
       visualizer: {
         ...DEFAULT_CONFIG.visualizer,
         ...config.visualizer,
+      },
+      traceId: {
+        ...DEFAULT_CONFIG.traceId,
+        ...config.traceId,
       },
     };
   }
@@ -414,6 +453,11 @@ class ConfigManager {
         ...DEFAULT_CONFIG.visualizer,
         ...(this.config.visualizer || {}),
       },
+      traceId: {
+        ...DEFAULT_CONFIG.traceId,
+        ...(this.config.traceId || {}),
+        ...(componentOptions.traceId || {}),
+      },
     };
   }
 
@@ -504,6 +548,10 @@ export function configurePreset(
     visualizer: {
       ...preset.visualizer,
       ...overrides?.visualizer,
+    },
+    traceId: {
+      ...preset.traceId,
+      ...overrides?.traceId,
     },
   };
   ConfigManager.getInstance().configure(merged);

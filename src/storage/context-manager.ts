@@ -184,6 +184,14 @@ export class ContextManager {
     return this.traceStorage?.getTraceHierarchy() ?? [];
   }
 
+  getContextInfo(): ReturnType<TraceStorage["getContextInfo"]> {
+    if (!this.traceStorage) {
+      return null;
+    }
+    this.traceStorage.ensureContext();
+    return this.traceStorage.getContextInfo();
+  }
+
   recordMemorySnapshot(): void {
     if (this.memoryStorage) {
       this.memoryStorage.recordSnapshot();

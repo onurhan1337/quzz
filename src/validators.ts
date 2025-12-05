@@ -62,6 +62,27 @@ export class ConfigValidator {
       warnings.push("forceEnable is enabled - tracing will run in production");
     }
 
+    if (config.traceId) {
+      if (
+        config.traceId.maxRouteLength !== undefined &&
+        config.traceId.maxRouteLength <= 0
+      ) {
+        errors.push("traceId.maxRouteLength must be greater than 0");
+      }
+      if (
+        config.traceId.maxSearchParamsLength !== undefined &&
+        config.traceId.maxSearchParamsLength <= 0
+      ) {
+        errors.push("traceId.maxSearchParamsLength must be greater than 0");
+      }
+      if (
+        config.traceId.maxIdLength !== undefined &&
+        config.traceId.maxIdLength <= 0
+      ) {
+        errors.push("traceId.maxIdLength must be greater than 0");
+      }
+    }
+
     if (config.logLevel === "trace" || config.logLevel === "debug") {
       warnings.push("Verbose logging levels may impact performance");
     }

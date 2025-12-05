@@ -1,11 +1,10 @@
 import type { ComponentType, ReactElement } from "react";
-import type { RSCTraceOptions, TraceMetadata } from "./types";
+import type { QuzzConfig, RSCTraceOptions, TraceMetadata } from "./types";
 import {
   getComponentName,
   sanitizeProps,
   sanitizePropsAsync,
   serializeError,
-  generateId,
   processPropsWithPlugins,
 } from "./utils";
 import { ConfigManager } from "./config";
@@ -13,6 +12,72 @@ import { TraceContext } from "./context";
 import { PerformanceMonitor } from "./performance";
 import { Logger } from "./logger";
 import { ContextManager } from "./storage/context-manager";
+import { TraceIdGenerator } from "./trace-id";
+
+function resolveSearchParams(
+  value: unknown,
+  maxLength: number
+): string | undefined {
+  if (!value) return undefined;
+  if (typeof value === "string") {
+    return value.slice(0, maxLength);
+  }
+  if (value instanceof URLSearchParams) {
+    const result = value.toString();
+    return result ? result.slice(0, maxLength) : undefined;
+  }
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .slice(0, 6)
+      .map(([k, v]) => [k, String(v ?? "")] as [string, string]);
+    if (entries.length === 0) {
+      return undefined;
+    }
+    const params = new URLSearchParams(entries);
+    const result = params.toString();
+    return result ? result.slice(0, maxLength) : undefined;
+  }
+  return undefined;
+}
+
+function resolveRouteHint(
+  props: unknown,
+  options: RSCTraceOptions,
+  config: QuzzConfig
+): string | undefined {
+  if (options.routeHint) {
+    return options.routeHint;
+  }
+  if (config.traceId?.includeRouteHint === false) {
+    return undefined;
+  }
+  if (!props || typeof props !== "object") {
+    return undefined;
+  }
+  const value = props as Record<string, unknown>;
+  const pathname =
+    typeof value.pathname === "string"
+      ? value.pathname
+      : typeof value.route === "string"
+        ? value.route
+        : typeof value.path === "string"
+          ? value.path
+          : undefined;
+  const search = resolveSearchParams(
+    value.searchParams,
+    config.traceId?.maxSearchParamsLength ?? 80
+  );
+  if (pathname && search) {
+    return `${pathname}?${search}`;
+  }
+  if (pathname) {
+    return pathname;
+  }
+  if (search) {
+    return `?${search}`;
+  }
+  return undefined;
+}
 
 // Re-export types and configuration
 export type {
@@ -33,6 +98,7 @@ export type {
   VisualizerConfig,
   PropSerializationStrategy,
   EnvConfig,
+  TraceIdConfig,
 } from "./types";
 
 export { VALID_LOG_LEVELS, VALID_OUTPUT_FORMATS } from "./types";
@@ -185,7 +251,14 @@ export function withRSCTrace<P extends object>(
       debugMode: config.debugContext,
     });
 
-    const traceId = generateId("trace");
+    const routeHint = resolveRouteHint(props, componentOptions, config);
+    const traceIds = TraceIdGenerator.getInstance().generate({
+      componentName,
+      config,
+      contextId: contextManager.getContextInfo()?.contextId,
+      routeHint,
+    });
+    const traceId = traceIds.traceId;
     const parentTraceId = context?.getCurrentParentId();
 
     const metadata: TraceMetadata = {
@@ -194,6 +267,9 @@ export function withRSCTrace<P extends object>(
       renderStart: Date.now(),
       traceId,
       parentTrace: parentTraceId,
+      routeHint: traceIds.routeHint,
+      rootTraceId: traceIds.rootTraceId,
+      sequence: traceIds.sequence,
     };
 
     const executeComponent = async () => {

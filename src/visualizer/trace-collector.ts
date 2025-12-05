@@ -17,6 +17,9 @@ export interface CollectedTrace {
   tags?: string[];
   error?: boolean;
   errorMessage?: string;
+  routeHint?: string;
+  rootTraceId?: string;
+  sequence?: number;
   depth: number;
   children: CollectedTrace[];
 }
@@ -123,6 +126,9 @@ export class TraceCollector {
       tags: metadata.tags,
       error: !!metadata.error,
       errorMessage: metadata.error?.message,
+      routeHint: metadata.routeHint,
+      rootTraceId: metadata.rootTraceId,
+      sequence: metadata.sequence,
       depth: 0,
       children: [],
     };
@@ -198,6 +204,10 @@ export class TraceCollector {
       if (updates.wallClockTime !== undefined)
         trace.wallClockTime = updates.wallClockTime;
       if (updates.waitTime !== undefined) trace.waitTime = updates.waitTime;
+      if (updates.routeHint !== undefined) trace.routeHint = updates.routeHint;
+      if (updates.rootTraceId !== undefined)
+        trace.rootTraceId = updates.rootTraceId;
+      if (updates.sequence !== undefined) trace.sequence = updates.sequence;
       if (updates.error) {
         trace.error = true;
         trace.errorMessage = updates.error.message;

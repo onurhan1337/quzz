@@ -183,6 +183,14 @@ export interface EnvConfig {
   forceEnable?: boolean;
 }
 
+export interface TraceIdConfig {
+  mode?: "structured" | "random";
+  includeRouteHint?: boolean;
+  maxRouteLength?: number;
+  maxSearchParamsLength?: number;
+  maxIdLength?: number;
+}
+
 /**
  * Global configuration options for quzz
  */
@@ -324,6 +332,8 @@ export interface QuzzConfig {
    * @default true
    */
   enableHyperlinks?: boolean;
+
+  traceId?: TraceIdConfig;
 }
 
 /**
@@ -348,6 +358,8 @@ export interface RSCTraceOptions extends Partial<QuzzConfig> {
     timing?: boolean;
     errors?: boolean;
   };
+
+  routeHint?: string;
 }
 
 export interface SerializedError {
@@ -372,6 +384,9 @@ export interface TraceMetadata {
   error?: SerializedError;
   parentTrace?: string;
   traceId: string;
+  routeHint?: string;
+  rootTraceId?: string;
+  sequence?: number;
   memory?: {
     heapUsed: number;
     heapTotal: number;

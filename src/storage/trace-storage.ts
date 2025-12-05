@@ -170,6 +170,16 @@ export class TraceStorage extends BaseAsyncStorage<TraceContext> {
     };
   }
 
+  ensureContext(): TraceContext | null {
+    const existing = this.getStore();
+    if (existing) {
+      return existing;
+    }
+    const created = this.createDefaultStore();
+    this.enterWith(created);
+    return created;
+  }
+
   clearContext(): void {
     const context = this.getStore();
     if (!context) return;

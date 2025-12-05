@@ -169,6 +169,10 @@ export function prettyFormatter(entry: LogEntry): string {
       output += `\n  ${colors.dim}↳ Parent: ${colors.cyan}${parentDisplay}${colors.reset}`;
     }
 
+    if (entry.metadata.routeHint) {
+      output += `\n  ${colors.dim}Route: ${colors.cyan}${entry.metadata.routeHint}${colors.reset}`;
+    }
+
     if (entry.metadata.props && Object.keys(entry.metadata.props).length > 0) {
       output += `\n  ${colors.dim}Props:${colors.reset} ${JSON.stringify(
         entry.metadata.props,
@@ -249,6 +253,10 @@ export function compactFormatter(entry: LogEntry): string {
     entry.level === "error" ? " ✗" : entry.level === "warn" ? " ⚠" : " ✓";
   output += `${levelColor}${levelIndicator}${colors.reset}`;
 
+  if (entry.metadata?.routeHint) {
+    output += ` ${colors.dim}${entry.metadata.routeHint}${colors.reset}`;
+  }
+
   // Error message if present
   if (entry.error) {
     output += ` ${colors.red}${entry.error.message}${colors.reset}`;
@@ -269,6 +277,9 @@ export function groupedFormatter(entry: LogEntry): string {
     }
     if (entry.metadata.parentTrace) {
       lines.push(`parent: ${entry.metadata.parentTrace}`);
+    }
+    if (entry.metadata.routeHint) {
+      lines.push(`route: ${entry.metadata.routeHint}`);
     }
     if (entry.metadata.duration !== undefined) {
       lines.push(`duration: ${entry.metadata.duration.toFixed(2)}ms`);
