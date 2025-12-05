@@ -1,6 +1,11 @@
 import React from "react";
 import type { RSCBoundaryProps, TraceMetadata } from "./types";
-import { sanitizeProps, serializeError, generateId } from "./utils";
+import {
+  sanitizeProps,
+  serializeError,
+  generateId,
+  processPropsWithPlugins,
+} from "./utils";
 import { ConfigManager } from "./config";
 import { TraceContext } from "./context";
 import { PerformanceMonitor } from "./performance";
@@ -124,15 +129,11 @@ export async function RSCBoundary({
     await logger.info(label, `Boundary rendering started`, metadata, tags);
 
     if (config.logProps && !disable?.props && React.isValidElement(children)) {
-      let capturedProps = { ...children.props } as Record<string, unknown>;
-
-      if (config.plugins) {
-        for (const plugin of config.plugins) {
-          if (plugin.onPropsCapture) {
-            capturedProps = plugin.onPropsCapture(capturedProps);
-          }
-        }
-      }
+      const capturedProps = processPropsWithPlugins(
+        children.props as Record<string, unknown>,
+        config.plugins,
+        config.maxPropDepth ?? 3
+      );
 
       const sanitized = sanitizeProps(capturedProps, config);
       metadata.props = sanitized;

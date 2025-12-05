@@ -89,7 +89,9 @@ export class TraceStorage extends BaseAsyncStorage<TraceContext> {
     const lastId = context.traceStack[context.traceStack.length - 1];
     if (lastId === traceId) {
       context.traceStack.pop();
-      this.logDebug(`Stack pop: ${traceId}, depth: ${context.traceStack.length}`);
+      this.logDebug(
+        `Stack pop: ${traceId}, depth: ${context.traceStack.length}`
+      );
     } else {
       const index = context.traceStack.indexOf(traceId);
       if (index !== -1) {
@@ -99,7 +101,7 @@ export class TraceStorage extends BaseAsyncStorage<TraceContext> {
         if (this.debugMode) {
           console.warn(
             `[quzz:trace-storage] Stack order mismatch: Expected ${lastId} but got ${traceId} (${componentName}). ` +
-            `This may indicate a race condition or out-of-order completion in parallel rendering.`
+              `This may indicate a race condition or out-of-order completion in parallel rendering.`
           );
         }
 
@@ -144,6 +146,11 @@ export class TraceStorage extends BaseAsyncStorage<TraceContext> {
   getTraceHierarchy(): string[] {
     const context = this.getStore();
     return context ? [...context.traceStack] : [];
+  }
+
+  getTraceStack(): string[] {
+    const context = this.getStore();
+    return context?.traceStack ?? [];
   }
 
   getContextInfo(): {

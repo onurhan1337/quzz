@@ -2,7 +2,7 @@ import type { TraceMetadata } from "./types";
 import { TraceCollector } from "./visualizer/trace-collector";
 import { ConfigManager } from "./config";
 import { MemoryLeakDetector, ContextValidator } from "./validators";
-import { ContextManager } from "./storage/context-manager";
+import { ContextManager, type StorageStats } from "./storage/context-manager";
 import { getNodeVersionInfo } from "./utils/node-version";
 
 /**
@@ -328,7 +328,7 @@ class TraceContext {
     isStableVersion: boolean;
     minimumRequiredVersion: string;
     recommendedVersion: string;
-    storageStats: Record<string, any>;
+    storageStats: Record<string, StorageStats>;
   } {
     const versionInfo = getNodeVersionInfo();
     const stats = this.contextManager.getAllStats();

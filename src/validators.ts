@@ -271,7 +271,9 @@ export class MemoryLeakDetector {
 }
 
 export class StorageHealthValidator {
-  static validateStorageHealth(stats: Record<string, any>): ValidationResult {
+  static validateStorageHealth(
+    stats: Record<string, import("./storage/context-manager").StorageStats>
+  ): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 

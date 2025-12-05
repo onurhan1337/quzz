@@ -2,6 +2,14 @@
  * Environment detection utilities for quzz
  */
 
+declare global {
+  interface Window {
+    readonly window: Window;
+    readonly document: Document;
+  }
+  var __NEXT_DATA__: unknown | undefined;
+}
+
 /**
  * Check if running in Node.js environment
  */
@@ -19,8 +27,10 @@ export function isNodeEnvironment(): boolean {
 export function isBrowserEnvironment(): boolean {
   return (
     typeof globalThis !== "undefined" &&
-    typeof (globalThis as any).window !== "undefined" &&
-    typeof (globalThis as any).document !== "undefined"
+    "window" in globalThis &&
+    "document" in globalThis &&
+    typeof (globalThis as { window?: unknown }).window !== "undefined" &&
+    typeof (globalThis as { document?: unknown }).document !== "undefined"
   );
 }
 
@@ -54,7 +64,7 @@ export function isTest(): boolean {
  */
 export function isNextJSServer(): boolean {
   return (
-    isNodeEnvironment() && typeof (global as any).__NEXT_DATA__ !== "undefined"
+    isNodeEnvironment() && typeof global.__NEXT_DATA__ !== "undefined"
   );
 }
 
