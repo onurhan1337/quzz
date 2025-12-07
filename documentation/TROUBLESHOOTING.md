@@ -125,6 +125,7 @@ async function SecureComponent({ user }) {
 ### Default Sensitive Keys
 
 quzz automatically redacts these keys by default:
+
 - password
 - token
 - secret
@@ -201,7 +202,10 @@ For custom error types, implement `toJSON()`:
 
 ```typescript
 class CustomError extends Error {
-  constructor(message: string, public customField: string) {
+  constructor(
+    message: string,
+    public customField: string
+  ) {
     super(message);
   }
 
@@ -418,6 +422,7 @@ withRSCTrace(SlowComponent, {
 ### Check Terminal Support
 
 Hyperlinks (OSC 8) are supported in:
+
 - iTerm2 (macOS)
 - VS Code integrated terminal
 - GNOME Terminal (Linux)
@@ -459,12 +464,9 @@ project/
 ### Check File Name
 
 Supported names (in priority order):
+
 - `quzz.config.ts`
-- `quzz.config.mts`
-- `quzz.config.cts`
-- `quzz.config.mjs`
 - `quzz.config.js` ← Recommended
-- `quzz.config.cjs`
 
 ### Verify Config Syntax
 

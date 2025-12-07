@@ -301,6 +301,8 @@ Manually load configuration from file (async).
 
 **Returns:** `Promise<QuzzConfig | null>`
 
+> Note: The synchronous `loadConfigFromFile()` is deprecated and returns `null`. Use the async API; file config is applied asynchronously (defaults/env take effect immediately, file config merges when ready).
+
 **Example:**
 
 ```typescript

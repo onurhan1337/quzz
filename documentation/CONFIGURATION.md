@@ -8,16 +8,10 @@ quzz supports multiple configuration methods with a clear priority system.
 
 Create a configuration file in your project root. quzz automatically loads it on initialization.
 
-#### Supported File Formats
+#### Supported File Formats (priority order)
 
-In priority order:
-
-- `quzz.config.ts` - TypeScript
-- `quzz.config.mts` - TypeScript ESM
-- `quzz.config.cts` - TypeScript CommonJS
-- `quzz.config.mjs` - JavaScript ESM
-- `quzz.config.js` - JavaScript CommonJS (**recommended**)
-- `quzz.config.cjs` - JavaScript CommonJS explicit
+- `quzz.config.ts` (TypeScript, preferred)
+- `quzz.config.js` (JavaScript, ESM/Node-resolved)
 
 #### JavaScript Configuration (Recommended)
 
@@ -120,14 +114,20 @@ QUZZ_FORCE_ENABLE=true  # Force enable in production (not recommended)
 QUZZ_DISABLE_HYPERLINKS=true
 ```
 
+> Production behavior: when `NODE_ENV=production`, quzz is off by default. Keep `QUZZ_ENABLED=false` or `QUZZ_DISABLE=true` to stay disabled. Only force it on (not recommended) with `QUZZ_FORCE_ENABLE=true`.
+
 ### Configuration Priority
 
 Settings are merged in this order (highest priority last):
 
 1. **Defaults** (built-in)
-2. **Config file** (`quzz.config.js`)
+2. **Config file** (`quzz.config.ts` or `quzz.config.js`, loaded async)
 3. **Environment variables** (`QUZZ_*`)
 4. **`configure()`** (programmatic)
+
+> Note: The config file loads asynchronously; defaults+env apply first, then the file merges when ready. The sync loader is deprecated.
+> If you call `configure()` after providing a config file, the programmatic call wins. (File-based config does not override values set via `configure()`.)
+> `resetConfig()` restores defaults (+env, optionally file config). `reloadConfig()` re-reads the config file and resets using it.
 
 ## Configuration Options
 
