@@ -106,8 +106,8 @@ export const DetailedComponent = withRSCTrace(
   }
 )
 
-// Or use file-based config (NEW in v0.4.0!)
-// quzz.config.mjs
+// Or use file-based config
+// quzz.config.ts
 export default {
   logLevel: 'info',
   outputFormat: 'compact', // Try the new compact format!
@@ -115,7 +115,7 @@ export default {
   enableHyperlinks: true,
   componentFilter: /^(Blog|Product)/
 }
-// Config auto-loads - no code changes needed! ✨`}
+// Config auto-loads async - no code changes needed! ✨`}
       />
 
       <Separator />
@@ -233,7 +233,7 @@ export default {
                   <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-blue-500/10 text-blue-500 rounded mb-1">
                     NEW
                   </span>{" "}
-                  Next.js-style quzz.config.mjs. Auto-loads, type-safe, zero
+                  Next.js-style quzz.config.ts/.js. Auto-loads, type-safe, zero
                   code changes needed.
                 </p>
               </div>
