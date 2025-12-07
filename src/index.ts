@@ -110,6 +110,7 @@ export {
   configure,
   getConfig,
   resetConfig,
+  reloadConfig,
   configurePreset,
   defineConfig,
   getPresets,
