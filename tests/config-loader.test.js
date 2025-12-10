@@ -155,7 +155,7 @@ test("merges file config with env and programmatic overrides", async () => {
       const fileCfg = await loadConfigFromFileAsync();
       await waitTick();
 
-      // simulate merge: file then env override
+      // simulate merge: defaults -> file -> env override
       configure({
         ...fileCfg,
         outputFormat: process.env.QUZZ_OUTPUT_FORMAT,
@@ -171,11 +171,14 @@ test("merges file config with env and programmatic overrides", async () => {
       configure({
         outputFormat: "pretty",
         performance: { trackMemory: true, warnThreshold: 111 },
+        props: { awaitProps: true },
       });
       cfg = getConfig();
       assert.equal(cfg.outputFormat, "pretty");
       assert.equal(cfg.performance?.trackMemory, true);
       assert.equal(cfg.performance?.warnThreshold, 111);
+      assert.equal(cfg.props?.awaitProps, true);
+      assert.equal(cfg.forceEnable, false);
 
       delete process.env.QUZZ_OUTPUT_FORMAT;
       delete process.env.QUZZ_FORCE_ENABLE;

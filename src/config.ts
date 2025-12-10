@@ -25,6 +25,8 @@ const DEFAULT_CONFIG: Required<
 > = {
   logLevel: "error",
   outputFormat: "pretty",
+  transportTimeoutMs: 500,
+  transportMaxPending: 100,
   performance: {
     enabled: false,
     warnThreshold: 750,
@@ -49,6 +51,7 @@ const DEFAULT_CONFIG: Required<
   maxStringLength: 200,
   contextTracking: true,
   includeSourceLocation: false,
+  mapStackTraces: false,
   throttleMs: 0,
   trackTotalLatency: false,
   autoLinkParent: true,
@@ -67,6 +70,7 @@ const DEFAULT_CONFIG: Required<
     maxRouteLength: 120,
     maxSearchParamsLength: 80,
     maxIdLength: 180,
+    maxPathLength: 120,
   },
 };
 
@@ -100,6 +104,7 @@ const PRESETS: Record<QuzzPresetName, QuzzPreset> = {
       maxRouteLength: 120,
       maxSearchParamsLength: 80,
       maxIdLength: 180,
+      maxPathLength: 120,
     },
   },
   perf: {
@@ -132,6 +137,7 @@ const PRESETS: Record<QuzzPresetName, QuzzPreset> = {
       maxRouteLength: 120,
       maxSearchParamsLength: 80,
       maxIdLength: 180,
+      maxPathLength: 120,
     },
   },
   minimal: {
@@ -163,6 +169,7 @@ const PRESETS: Record<QuzzPresetName, QuzzPreset> = {
       maxRouteLength: 120,
       maxSearchParamsLength: 80,
       maxIdLength: 180,
+      maxPathLength: 120,
     },
   },
 };
@@ -218,14 +225,12 @@ class ConfigManager {
   }
 
   private applyFileConfig(fileConfig: QuzzConfig, envConfig: EnvConfig): void {
-    this.config = mergeConfigLayers(
+    const withFile = mergeConfigLayers(
       DEFAULT_CONFIG,
-      {
-        ...fileConfig,
-        ...envConfig,
-      },
+      fileConfig,
       DEFAULT_CONFIG
     );
+    this.config = mergeConfigLayers(withFile, envConfig, DEFAULT_CONFIG);
     this.fileConfigApplied = true;
   }
 
@@ -301,13 +306,12 @@ class ConfigManager {
    */
   reset(options: ResetOptions = {}): void {
     const applyEnv = options.applyEnv ?? true;
-    const envConfig = applyEnv ? parseEnvConfig() : {};
-    const base = mergeConfigLayers(DEFAULT_CONFIG, envConfig, DEFAULT_CONFIG);
     const fileConfig = options.fileConfig;
-
-    this.config = fileConfig
-      ? mergeConfigLayers(base, fileConfig, DEFAULT_CONFIG)
-      : base;
+    const fileMerged = fileConfig
+      ? mergeConfigLayers(DEFAULT_CONFIG, fileConfig, DEFAULT_CONFIG)
+      : { ...DEFAULT_CONFIG };
+    const envConfig = applyEnv ? parseEnvConfig() : {};
+    this.config = mergeConfigLayers(fileMerged, envConfig, DEFAULT_CONFIG);
     this.userConfigured = false;
     this.fileConfigApplied = Boolean(fileConfig);
   }

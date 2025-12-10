@@ -3,7 +3,6 @@ import type { RSCBoundaryProps, TraceMetadata } from "./types";
 import {
   sanitizeProps,
   serializeError,
-  generateId,
   processPropsWithPlugins,
 } from "./utils";
 import { ConfigManager } from "./config";
@@ -11,6 +10,7 @@ import { TraceContext } from "./context";
 import { PerformanceMonitor } from "./performance";
 import { Logger } from "./logger";
 import { ContextManager } from "./storage/context-manager";
+import { TraceIdGenerator, resolveRouteHint } from "./trace-id";
 
 /**
  * RSCBoundary component for tracing React Server Components
@@ -35,7 +35,6 @@ export async function RSCBoundary({
   performance,
   tags,
   disable,
-  logProps,
   ...traceOptions
 }: RSCBoundaryProps) {
   const configManager = ConfigManager.getInstance();
@@ -46,7 +45,6 @@ export async function RSCBoundary({
     performance,
     tags,
     disable,
-    logProps,
     ...traceOptions,
   };
 
@@ -67,7 +65,17 @@ export async function RSCBoundary({
     debugMode: config.debugContext,
   });
 
-  const traceId = generateId("boundary");
+  const routeSource = React.isValidElement(children)
+    ? children.props
+    : children;
+  const routeHint = resolveRouteHint(routeSource, componentOptions, config);
+  const traceIds = TraceIdGenerator.getInstance().generate({
+    componentName: label,
+    config,
+    contextId: contextManager.getContextInfo()?.contextId,
+    routeHint,
+  });
+  const traceId = traceIds.traceId;
   const parentTraceId = context?.getCurrentParentId();
 
   const metadata: TraceMetadata = {
@@ -76,6 +84,9 @@ export async function RSCBoundary({
     renderStart: Date.now(),
     traceId,
     parentTrace: parentTraceId,
+    routeHint: traceIds.routeHint,
+    rootTraceId: traceIds.rootTraceId,
+    sequence: traceIds.sequence,
   };
 
   const executeBoundary = async () => {
@@ -128,7 +139,7 @@ export async function RSCBoundary({
 
     await logger.info(label, `Boundary rendering started`, metadata, tags);
 
-    if (config.logProps && !disable?.props && React.isValidElement(children)) {
+    if (!disable?.props && React.isValidElement(children)) {
       const capturedProps = processPropsWithPlugins(
         children.props as Record<string, unknown>,
         config.plugins,
@@ -230,7 +241,10 @@ export async function RSCBoundary({
 
       return result;
     } catch (error) {
-      const serializedError = serializeError(error as Error);
+      const maxErrorDepth = config.props?.maxErrorDepth ?? 3;
+      const serializedError = serializeError(error as Error, maxErrorDepth, 0, {
+        mapStackTraces: config.mapStackTraces,
+      });
       metadata.error = serializedError;
 
       if (config.debugContext) {

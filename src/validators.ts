@@ -11,6 +11,8 @@ export class ConfigValidator {
   private static readonly MAX_STRING_LENGTH_LIMIT = 10000;
   private static readonly MAX_THROTTLE_MS = 60000;
   private static readonly WARN_THRESHOLD_LIMIT = 30000;
+  private static readonly MAX_TRANSPORT_TIMEOUT_MS = 60000;
+  private static readonly MAX_TRANSPORT_PENDING = 10000;
 
   static validate(config: Partial<QuzzConfig>): ValidationResult {
     const errors: string[] = [];
@@ -41,6 +43,28 @@ export class ConfigValidator {
     if (config.throttleMs !== undefined) {
       if (config.throttleMs < 0 || config.throttleMs > this.MAX_THROTTLE_MS) {
         errors.push(`throttleMs must be between 0 and ${this.MAX_THROTTLE_MS}`);
+      }
+    }
+
+    if (config.transportTimeoutMs !== undefined) {
+      if (
+        config.transportTimeoutMs < 0 ||
+        config.transportTimeoutMs > this.MAX_TRANSPORT_TIMEOUT_MS
+      ) {
+        errors.push(
+          `transportTimeoutMs must be between 0 and ${this.MAX_TRANSPORT_TIMEOUT_MS}`
+        );
+      }
+    }
+
+    if (config.transportMaxPending !== undefined) {
+      if (
+        config.transportMaxPending < 0 ||
+        config.transportMaxPending > this.MAX_TRANSPORT_PENDING
+      ) {
+        errors.push(
+          `transportMaxPending must be between 0 and ${this.MAX_TRANSPORT_PENDING}`
+        );
       }
     }
 

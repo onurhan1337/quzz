@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { mapStackTrace, type MapStackOptions } from "./utils/stack-mapper";
 import type { SerializedError, PropsConfig, TracePlugin } from "./types";
 
 const DEFAULT_SENSITIVE_KEYS = [
@@ -628,18 +629,18 @@ interface ErrorWithMetadata extends Error {
   componentStack?: string;
 }
 
-/**
- * Serialize error with all available information and depth control for cause chains
- */
+type SerializeErrorOptions = MapStackOptions;
+
 export function serializeError(
   error: Error,
   maxDepth: number = 3,
-  currentDepth: number = 0
+  currentDepth: number = 0,
+  options?: SerializeErrorOptions
 ): SerializedError {
   const serialized: SerializedError = {
     message: error.message,
     name: error.name,
-    stack: error.stack,
+    stack: mapStackTrace(error.stack, options),
   };
 
   const errorWithMeta = error as ErrorWithMetadata;
@@ -667,7 +668,8 @@ export function serializeError(
       serialized.cause = serializeError(
         error.cause,
         maxDepth,
-        currentDepth + 1
+        currentDepth + 1,
+        options
       );
     } else {
       serialized.cause = String(error.cause);
