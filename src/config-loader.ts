@@ -94,7 +94,15 @@ function findConfigFile(baseDir: string): string | null {
  * Looks for package.json starting from cwd
  */
 function getProjectRoot(): string {
-  const startDir = realpathSync(process.cwd());
+  let startDir: string;
+  try {
+    startDir = realpathSync(process.cwd());
+  } catch {
+    console.warn(
+      "[rsc-debug] Warning: realpathSync failed, falling back to process.cwd()."
+    );
+    return process.cwd();
+  }
   let currentDir = startDir;
   const root = resolve("/");
 

@@ -74,6 +74,7 @@ export function resolveEnabled(
   current: QuzzConfig,
   options?: { traceOptions?: { forceEnable?: boolean } }
 ): boolean {
+  if (typeof process === "undefined") return false;
   if (process.env.QUZZ_DISABLE === "true") return false;
 
   if (process.env.QUZZ_ENABLED !== undefined) {
