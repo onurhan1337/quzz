@@ -30,7 +30,9 @@ function mergeShallow<T extends object | undefined>(
   defaults: T | undefined,
   base: T | undefined,
   overrides: T | undefined
-): T {
+): T | undefined {
+  if (!defaults && !base && !overrides) return undefined;
+
   return {
     ...(defaults ?? {}),
     ...(base ?? {}),
