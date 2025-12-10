@@ -166,18 +166,19 @@ module.exports = {
 
 #### `traceId`
 
-- **Type:** `{ mode?: "structured" | "random"; includeRouteHint?: boolean; maxRouteLength?: number; maxSearchParamsLength?: number; maxIdLength?: number }`
-- **Default:** `{ mode: "structured", includeRouteHint: true, maxRouteLength: 120, maxSearchParamsLength: 80, maxIdLength: 180 }`
-- **Description:** Controls trace ID shape and route hint inclusion
+- **Type:** `{ mode?: "structured" | "random"; includeRouteHint?: boolean; maxRouteLength?: number; maxSearchParamsLength?: number; maxIdLength?: number; maxPathLength?: number }`
+- **Default:** `{ mode: "structured", includeRouteHint: true, maxRouteLength: 120, maxSearchParamsLength: 80, maxIdLength: 180, maxPathLength: 120 }`
+- **Description:** Controls trace ID generation and route hint formatting
 
 ```javascript
 module.exports = {
   traceId: {
-    mode: "structured",
-    includeRouteHint: true,
-    maxRouteLength: 120,
-    maxSearchParamsLength: 80,
-    maxIdLength: 180,
+    mode: "structured",           // "structured" | "random"
+    includeRouteHint: true,       // Include route info in trace IDs
+    maxRouteLength: 120,          // Max total route hint length
+    maxSearchParamsLength: 80,    // Max query parameters length
+    maxIdLength: 180,             // Max total trace ID length
+    maxPathLength: 120,           // Max URL path length before truncation
   },
 };
 ```
@@ -207,6 +208,32 @@ configure({
 ```
 
 - `grouped`: Grouped multi-line logs without ANSI
+
+#### `mapStackTraces`
+
+- **Type:** `boolean`
+- **Default:** `false`
+- **Description:** Attempts to map error stacks using Node’s built-in source map support (`--enable-source-maps` or inline maps). Maps the first 80 stack lines for performance; remaining lines are left as-is. Falls back silently if mapping is unavailable. Intended for development; keep off in production.
+
+#### Transport safeguards
+
+- `transportTimeoutMs`
+  - **Type:** `number`
+  - **Default:** `500`
+  - **Description:** Per-transport timeout in milliseconds. If a custom transport exceeds this, it is abandoned for that log entry without blocking rendering.
+- `transportMaxPending`
+  - **Type:** `number`
+  - **Default:** `100`
+  - **Description:** Maximum concurrent pending custom transport tasks. Additional logs beyond this limit are dropped for custom transports to avoid backpressure.
+
+```javascript
+module.exports = {
+  mapStackTraces: true,
+  transportTimeoutMs: 300,
+  transportMaxPending: 50,
+  transports: [createHttpTransport({ url: "https://logs.example.com/ingest" })],
+};
+```
 
 #### `forceEnable`
 
@@ -498,6 +525,31 @@ All component-level options:
   autoLinkParent: true,
 }
 ```
+
+### URL Processing and Security
+
+The trace ID system uses secure URL parsing to handle route hints:
+
+- **Safe URL Parsing**: Filters dangerous protocols (javascript:, data:, etc.)
+- **Intelligent Truncation**: Preserves important path segments when truncating long URLs
+- **Length Limits**: Prevents trace IDs from becoming unwieldy in logs
+- **Query Parameter Handling**: Safely processes and truncates search parameters
+
+**Security Features:**
+
+```javascript
+// These dangerous URLs are safely handled:
+// javascript:alert('xss') → treated as plain text path
+// data:text/html,<script> → treated as plain text path
+// Very long URLs → intelligently truncated with ...
+
+module.exports = {
+  traceId: {
+    maxPathLength: 100,        // Long paths truncated intelligently
+    maxSearchParamsLength: 50, // Query params truncated at limit
+  },
+};
+
 
 ## Utility Functions
 

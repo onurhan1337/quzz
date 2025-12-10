@@ -180,6 +180,13 @@ export default {
               components. Plus all v0.4.0 features: file-based config, compact
               output, terminal hyperlinks, and more.
             </p>
+            <ul className="mt-6 space-y-2 text-sm text-muted-foreground text-left sm:text-center">
+              <li>• Dev-only source-mapped error stacks (no extra deps)</li>
+              <li>
+                • Transport timeouts & backpressure guards to avoid log stalls
+              </li>
+              <li>• Bounded source-map cache for fast remapping</li>
+            </ul>
           </div>
 
           <StorageDemo />
@@ -217,6 +224,21 @@ export default {
                   </span>{" "}
                   Map-rendered and async nested components now correctly
                   maintain parent-child relationships in traces.
+                </p>
+              </div>
+            </div>
+
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+              <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <div className="relative">
+                <div className="mb-4 w-12 h-12 rounded-none bg-red-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <AlertCircle className="w-6 h-6 text-red-500" />
+                </div>
+                <h3 className="text-xl mb-2">Mapped stacks & resilient logs</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Dev-only source-mapped error stacks (no extra deps) plus
+                  transport timeouts and backpressure guards so slow custom
+                  transports never block your renders.
                 </p>
               </div>
             </div>
