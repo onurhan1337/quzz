@@ -329,10 +329,7 @@ function createFileTransport(options: FileTransportOptions): LogTransport {
 function createHttpTransport(options: HttpTransportOptions): LogTransport {
   if (typeof fetch !== "function") {
     console.warn("[quzz:http-transport] fetch is not available");
-    return createFileTransport({
-      path: "/dev/null",
-      flushIntervalMs: 0,
-    });
+    return () => {};
   }
 
   const queue: QueueEntry[] = [];
