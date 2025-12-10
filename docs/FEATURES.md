@@ -72,7 +72,7 @@ export default {
 Settings are merged in this order (highest priority last):
 
 1. **Defaults** (built-in)
-2. **quzz.config.ts`/`.js`** (file-based, loaded async)
+2. **`quzz.config.ts`/`.js`** (file-based, loaded async)
 3. **Environment variables** (`QUZZ_*`)
 4. **configure()** (programmatic)
 

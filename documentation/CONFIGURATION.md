@@ -60,7 +60,7 @@ export default defineConfig({
 });
 ```
 
-**Note:** TypeScript config loading requires `typescript` to be available in your project.
+**Note:** TypeScript config loading requires `esbuild` to be available in your project.
 
 ### 2. Programmatic Configuration
 
@@ -206,8 +206,6 @@ configure({
   ],
 });
 ```
-
-- `grouped`: Grouped multi-line logs without ANSI
 
 #### `mapStackTraces`
 
@@ -549,7 +547,7 @@ module.exports = {
     maxSearchParamsLength: 50, // Query params truncated at limit
   },
 };
-
+```
 
 ## Utility Functions
 
