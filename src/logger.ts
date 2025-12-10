@@ -308,7 +308,11 @@ function createFileTransport(options: FileTransportOptions): LogTransport {
     if (flushing || buffer.length === 0) return;
     flushing = true;
     const payload = buffer.splice(0, buffer.length).join("\n") + "\n";
-    appendFile(options.path, payload, () => {
+    appendFile(options.path, payload, (err) => {
+      if (err) {
+        console.warn(`[quzz:file-transport] Write failed: ${err.message}`);
+      }
+
       flushing = false;
     });
   };
