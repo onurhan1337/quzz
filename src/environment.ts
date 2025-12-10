@@ -3,10 +3,11 @@
  */
 
 declare global {
-  interface Window {
-    readonly window: Window;
-    readonly document: Document;
-  }
+  /**
+   * Next.js runtime data, present on server/client when running under Next.js.
+   * Kept intentionally loose to avoid coupling to Next.js internals.
+   */
+  // eslint-disable-next-line no-var
   var __NEXT_DATA__: unknown | undefined;
 }
 
@@ -63,9 +64,7 @@ export function isTest(): boolean {
  * Check if running in Next.js server environment
  */
 export function isNextJSServer(): boolean {
-  return (
-    isNodeEnvironment() && typeof global.__NEXT_DATA__ !== "undefined"
-  );
+  return isNodeEnvironment() && typeof global.__NEXT_DATA__ !== "undefined";
 }
 
 /**
