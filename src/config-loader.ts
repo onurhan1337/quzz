@@ -99,7 +99,7 @@ function getProjectRoot(): string {
     startDir = realpathSync(process.cwd());
   } catch {
     console.warn(
-      "[rsc-debug] Warning: realpathSync failed, falling back to process.cwd()."
+      "[quzz] Warning: realpathSync failed, falling back to process.cwd()."
     );
     return process.cwd();
   }

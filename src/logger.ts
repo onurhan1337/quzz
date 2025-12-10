@@ -397,7 +397,7 @@ function createHttpTransport(options: HttpTransportOptions): LogTransport {
     } finally {
       flushing = false;
 
-      if (queue.length >= batchSize) return flush();
+      if (queue.length >= batchSize) flush();
     }
   };
 
