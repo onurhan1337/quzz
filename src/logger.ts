@@ -34,6 +34,9 @@ const throttleMap = new Map<string, number>();
  */
 class Logger {
   private static instance: Logger;
+  private pendingTransports = 0;
+  private lastDropWarnAt = 0;
+  private readonly dropWarnIntervalMs = 5000;
 
   private constructor() {}
 
@@ -114,9 +117,80 @@ class Logger {
 
     // Send to custom transports
     if (config.transports && config.transports.length > 0) {
+      const timeoutMs = config.transportTimeoutMs ?? 500;
+      const maxPending = config.transportMaxPending ?? 100;
+
       await Promise.allSettled(
-        config.transports.map((transport) => transport(entry, formatted))
+        config.transports.map((transport) =>
+          this.runTransportWithGuards(
+            transport,
+            entry,
+            formatted,
+            timeoutMs,
+            maxPending
+          )
+        )
       );
+    }
+  }
+
+  private async runTransportWithGuards(
+    transport: LogTransport,
+    entry: LogEntry,
+    formatted: string,
+    timeoutMs: number,
+    maxPending: number
+  ): Promise<void> {
+    if (maxPending > 0 && this.pendingTransports >= maxPending) {
+      const now = Date.now();
+      if (now - this.lastDropWarnAt > this.dropWarnIntervalMs) {
+        console.warn(
+          "[quzz:transport] Dropping log entry: transport queue is full"
+        );
+        this.lastDropWarnAt = now;
+      }
+      return;
+    }
+
+    this.pendingTransports += 1;
+
+    try {
+      const result = transport(entry, formatted);
+      const maybePromise =
+        result &&
+        (typeof result === "object" || typeof result === "function") &&
+        "then" in result &&
+        typeof (result as { then?: unknown }).then === "function"
+          ? Promise.resolve(result as Promise<void>)
+          : null;
+
+      if (maybePromise) {
+        if (timeoutMs <= 0) {
+          await maybePromise;
+        } else {
+          let timer: NodeJS.Timeout | undefined;
+          await Promise.race([
+            maybePromise.finally(() => {
+              if (timer) {
+                clearTimeout(timer);
+              }
+            }),
+            new Promise<void>((resolve) => {
+              timer = setTimeout(resolve, timeoutMs);
+            }),
+          ]);
+        }
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Unknown error";
+      console.warn(`[quzz:transport] Transport failed: ${String(message)}`);
+    } finally {
+      this.pendingTransports = Math.max(0, this.pendingTransports - 1);
     }
   }
 
@@ -248,7 +322,7 @@ function createFileTransport(options: FileTransportOptions): LogTransport {
 }
 
 function createHttpTransport(options: HttpTransportOptions): LogTransport {
-  const queue: string[] = [];
+  const queue: LogEntry[] = [];
   let flushing = false;
   const batchSize = options.batchSize ?? 10;
   const flushInterval = options.flushIntervalMs ?? 1000;
@@ -265,15 +339,15 @@ function createHttpTransport(options: HttpTransportOptions): LogTransport {
           "content-type": "application/json",
           ...(options.headers || {}),
         },
-        body: `[${batch.join(",")}]`,
+        body: JSON.stringify(batch),
       });
     } finally {
       flushing = false;
     }
   };
   setInterval(flush, flushInterval).unref();
-  return (_, formatted) => {
-    queue.push(formatted);
+  return (entry) => {
+    queue.push(entry);
     if (queue.length >= batchSize) {
       flush();
     }

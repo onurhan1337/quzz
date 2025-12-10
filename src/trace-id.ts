@@ -52,16 +52,13 @@ function resolveRouteHint(
     pathname = value.path;
   }
 
-  // Pathname varsa, uzunluğunu sınırla
   const maxPathLength = config.traceId?.maxPathLength ?? 120;
   if (pathname && pathname.length > maxPathLength) {
     pathname = truncatePath(pathname, maxPathLength);
   }
 
-  // Lazy evaluation ile search params'ı sadece ihtiyaç duyulduğunda hesapla
   let search: string | undefined;
 
-  // Search params'a ihtiyacımız var mı kontrol et
   const needsSearchParams =
     pathname !== undefined || value.searchParams !== undefined;
 
@@ -72,7 +69,6 @@ function resolveRouteHint(
     );
   }
 
-  // Sonuç oluşturma aynı kalıyor
   if (pathname && search) {
     return `${pathname}?${search}`;
   }

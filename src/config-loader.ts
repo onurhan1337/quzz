@@ -94,20 +94,24 @@ function findConfigFile(baseDir: string): string | null {
  * Looks for package.json starting from cwd
  */
 function getProjectRoot(): string {
-  let currentDir = realpathSync(process.cwd());
+  const startDir = realpathSync(process.cwd());
+  let currentDir = startDir;
   const root = resolve("/");
 
   // Look for package.json up the directory tree
-  while (currentDir !== root) {
+  while (true) {
     const packageJsonPath = join(currentDir, "package.json");
     if (existsSync(packageJsonPath)) {
       return currentDir;
     }
+    if (currentDir === root) {
+      break;
+    }
     currentDir = resolve(currentDir, "..");
   }
 
-  // Fallback to cwd if no package.json found
-  return process.cwd();
+  // Fallback to starting cwd if no package.json found
+  return startDir;
 }
 
 async function loadTranspiledTsConfig(
@@ -124,49 +128,63 @@ async function loadTranspiledTsConfig(
     return null;
   }
 
-  const source = readFileSync(filePath, "utf8");
-  const { code } = await transform(source, {
-    loader: "ts",
-    format: "esm",
-    target: "es2020",
-    sourcefile: filePath,
-    sourcemap: "inline",
-  });
+  try {
+    const source = readFileSync(filePath, "utf8");
+    const { code } = await transform(source, {
+      loader: "ts",
+      format: "esm",
+      target: "es2020",
+      sourcefile: filePath,
+      sourcemap: "inline",
+    });
 
-  const dataUrl = `data:text/javascript;base64,${Buffer.from(code).toString(
-    "base64"
-  )}`;
-  const bust = mtimeMs ? `#t=${mtimeMs}` : "";
-  const imported = await import(`${dataUrl}${bust}`);
-  const config = imported.default ?? imported.config ?? imported;
+    const dataUrl = `data:text/javascript;base64,${Buffer.from(code).toString(
+      "base64"
+    )}`;
+    const bust = mtimeMs ? `#t=${mtimeMs}` : "";
+    const imported = await import(`${dataUrl}${bust}`);
+    const config = imported.default ?? imported.config ?? imported;
 
-  if (!config || typeof config !== "object") {
+    if (!config || typeof config !== "object") {
+      console.warn(
+        `[quzz] Config file found at ${filePath} but no valid config exported`
+      );
+      return null;
+    }
+
+    return config as QuzzConfig;
+  } catch (error) {
     console.warn(
-      `[quzz] Config file found at ${filePath} but no valid config exported`
+      `[quzz] Failed to load config from ${filePath}: ${(error as Error).message}`
     );
     return null;
   }
-
-  return config as QuzzConfig;
 }
 
 async function loadEsmJsConfig(
   filePath: string,
   mtimeMs?: number
 ): Promise<QuzzConfig | null> {
-  const fileUrl = pathToFileURL(filePath);
-  const bust = mtimeMs ? `?t=${mtimeMs}` : "";
-  const imported = await import(`${fileUrl.href}${bust}`);
-  const config = imported.default ?? imported.config ?? imported;
+  try {
+    const fileUrl = pathToFileURL(filePath);
+    const bust = mtimeMs ? `?t=${mtimeMs}` : "";
+    const imported = await import(`${fileUrl.href}${bust}`);
+    const config = imported.default ?? imported.config ?? imported;
 
-  if (!config || typeof config !== "object") {
+    if (!config || typeof config !== "object") {
+      console.warn(
+        `[quzz] Config file found at ${filePath} but no valid config exported`
+      );
+      return null;
+    }
+
+    return config as QuzzConfig;
+  } catch (error) {
     console.warn(
-      `[quzz] Config file found at ${filePath} but no valid config exported`
+      `[quzz] Failed to load config from ${filePath}: ${(error as Error).message}`
     );
     return null;
   }
-
-  return config as QuzzConfig;
 }
 
 /**

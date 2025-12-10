@@ -253,6 +253,10 @@ export function compactFormatter(entry: LogEntry): string {
     entry.level === "error" ? " ✗" : entry.level === "warn" ? " ⚠" : " ✓";
   output += `${levelColor}${levelIndicator}${colors.reset}`;
 
+  if (entry.metadata?.traceId) {
+    output += ` ${colors.dim}[${entry.metadata.traceId}]${colors.reset}`;
+  }
+
   if (entry.metadata?.routeHint) {
     output += ` ${colors.dim}${entry.metadata.routeHint}${colors.reset}`;
   }
