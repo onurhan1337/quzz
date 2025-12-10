@@ -48,6 +48,7 @@ export interface HttpTransportOptions {
   batchSize?: number;
   flushIntervalMs?: number;
   method?: "POST" | "PUT";
+  maxRetries?: number;
 }
 
 /**

@@ -327,25 +327,44 @@ function createFileTransport(options: FileTransportOptions): LogTransport {
 }
 
 function createHttpTransport(options: HttpTransportOptions): LogTransport {
+  if (typeof fetch !== "function") {
+    console.warn("[quzz:http-transport] fetch is not available");
+    return createFileTransport({
+      path: "/dev/null",
+      flushIntervalMs: 0,
+    });
+  }
+
   const queue: QueueEntry[] = [];
   let flushing = false;
 
   const batchSize = options.batchSize ?? 10;
   const flushInterval = options.flushIntervalMs ?? 1000;
   const method = options.method ?? "POST";
+  const maxRetries = options.maxRetries ?? 3;
+
+  async function retryBatch(retryEligible: QueueEntry[]) {
+    if (retryEligible.length === 0) return;
+
+    const maxRetry = Math.max(0, ...retryEligible.map((i) => i.retryCount));
+    const wait = (maxRetry + 1) * 150;
+    await new Promise((res) => setTimeout(res, wait));
+
+    for (const item of retryEligible) {
+      queue.unshift({
+        entry: item.entry,
+        retryCount: item.retryCount + 1,
+      });
+    }
+  }
 
   const flush = async () => {
     if (flushing || queue.length === 0) return;
-    if (typeof fetch !== "function") return;
 
     flushing = true;
 
     const batch = queue.splice(0, batchSize);
-    const retryCount = batch.reduce(
-      (max, item) => Math.max(max, item.retryCount),
-      0
-    );
-    const payload = batch.map((entry) => entry.entry);
+    const retryEligible = batch.filter((i) => i.retryCount < maxRetries);
 
     try {
       const response = await fetch(options.url, {
@@ -354,49 +373,28 @@ function createHttpTransport(options: HttpTransportOptions): LogTransport {
           "content-type": "application/json",
           ...(options.headers || {}),
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(batch.map((i) => i.entry)),
       });
 
-      if (!response.ok) {
+      const retriableStatus =
+        (response.status >= 500 && response.status < 600) ||
+        response.status === 429;
+
+      if (!response.ok && retriableStatus) {
         console.warn(
           `[quzz:http-transport] Request failed: ${response.status}`
         );
-
-        if (
-          ((response.status >= 500 && response.status < 600) ||
-            response.status === 429) &&
-          retryCount < 3
-        ) {
-          const wait = (retryCount + 1) * 150;
-          await new Promise((res) => setTimeout(res, wait));
-
-          for (const item of batch) {
-            queue.unshift({
-              entry: item.entry,
-              retryCount: item.retryCount + 1,
-            });
-          }
-        }
+        await retryBatch(retryEligible);
       }
     } catch (err) {
       console.warn(
-        `[quzz:http-transport] Failed: ${err instanceof Error ? err.message : err}`
+        `[quzz:http-transport] Failed: ${
+          err instanceof Error ? err.message : err
+        }`
       );
-
-      if (retryCount < 3) {
-        const wait = (retryCount + 1) * 150;
-        await new Promise((res) => setTimeout(res, wait));
-
-        for (const item of batch) {
-          queue.unshift({
-            entry: item.entry,
-            retryCount: item.retryCount + 1,
-          });
-        }
-      }
+      await retryBatch(retryEligible);
     } finally {
       flushing = false;
-
       if (queue.length >= batchSize) flush();
     }
   };
