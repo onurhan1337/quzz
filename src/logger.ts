@@ -366,6 +366,11 @@ function createHttpTransport(options: HttpTransportOptions): LogTransport {
     const batch = queue.splice(0, batchSize);
     const retryEligible = batch.filter((i) => i.retryCount < maxRetries);
 
+    if (retryEligible.length === 0) {
+      flushing = false;
+      return;
+    }
+
     try {
       const response = await fetch(options.url, {
         method,
@@ -373,7 +378,7 @@ function createHttpTransport(options: HttpTransportOptions): LogTransport {
           "content-type": "application/json",
           ...(options.headers || {}),
         },
-        body: JSON.stringify(batch.map((i) => i.entry)),
+        body: JSON.stringify(retryEligible.map((i) => i.entry)),
       });
 
       const retriableStatus =
