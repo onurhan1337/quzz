@@ -421,6 +421,11 @@ export interface LogEntry {
   tags?: string[];
 }
 
+export interface QueueEntry {
+  entry: LogEntry;
+  retryCount: number;
+}
+
 export interface PerformanceMetrics {
   componentName: string;
   avgDuration: number;

@@ -7,6 +7,7 @@ import type {
   FileTransportOptions,
   HttpTransportOptions,
   LogTransport,
+  QueueEntry,
 } from "./types";
 import { ConfigManager } from "./config";
 import { getFormatter } from "./formatters";
@@ -326,32 +327,85 @@ function createFileTransport(options: FileTransportOptions): LogTransport {
 }
 
 function createHttpTransport(options: HttpTransportOptions): LogTransport {
-  const queue: LogEntry[] = [];
+  const queue: QueueEntry[] = [];
   let flushing = false;
+
   const batchSize = options.batchSize ?? 10;
   const flushInterval = options.flushIntervalMs ?? 1000;
   const method = options.method ?? "POST";
+
   const flush = async () => {
     if (flushing || queue.length === 0) return;
     if (typeof fetch !== "function") return;
+
     flushing = true;
+
     const batch = queue.splice(0, batchSize);
+    const retryCount = batch.reduce(
+      (max, item) => Math.max(max, item.retryCount),
+      0
+    );
+    const payload = batch.map((entry) => entry.entry);
+
     try {
-      await fetch(options.url, {
+      const response = await fetch(options.url, {
         method,
         headers: {
           "content-type": "application/json",
           ...(options.headers || {}),
         },
-        body: JSON.stringify(batch),
+        body: JSON.stringify(payload),
       });
+
+      if (!response.ok) {
+        console.warn(
+          `[quzz:http-transport] Request failed: ${response.status}`
+        );
+
+        if (
+          ((response.status >= 500 && response.status < 600) ||
+            response.status === 429) &&
+          retryCount < 3
+        ) {
+          const wait = (retryCount + 1) * 150;
+          await new Promise((res) => setTimeout(res, wait));
+
+          for (const item of batch) {
+            queue.unshift({
+              entry: item.entry,
+              retryCount: item.retryCount + 1,
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(
+        `[quzz:http-transport] Failed: ${err instanceof Error ? err.message : err}`
+      );
+
+      if (retryCount < 3) {
+        const wait = (retryCount + 1) * 150;
+        await new Promise((res) => setTimeout(res, wait));
+
+        for (const item of batch) {
+          queue.unshift({
+            entry: item.entry,
+            retryCount: item.retryCount + 1,
+          });
+        }
+      }
     } finally {
       flushing = false;
+
+      if (queue.length >= batchSize) return flush();
     }
   };
+
   setInterval(flush, flushInterval).unref();
+
   return (entry) => {
-    queue.push(entry);
+    queue.push({ entry, retryCount: 0 });
+
     if (queue.length >= batchSize) {
       flush();
     }
