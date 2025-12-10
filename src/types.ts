@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 
 export type LogLevel = "silent" | "error" | "warn" | "info" | "debug" | "trace";
 export type OutputFormat = "pretty" | "json" | "compact" | "grouped" | "custom";
+export type Milliseconds = number;
 
 /**
  * Valid log levels for type-safe validation
@@ -189,6 +190,7 @@ export interface TraceIdConfig {
   maxRouteLength?: number;
   maxSearchParamsLength?: number;
   maxIdLength?: number;
+  maxPathLength?: number;
 }
 
 /**
@@ -216,6 +218,16 @@ export interface QuzzConfig {
    * Custom log transports
    */
   transports?: LogTransport[];
+
+  /**
+   * Timeout per custom transport invocation in milliseconds
+   */
+  transportTimeoutMs?: Milliseconds;
+
+  /**
+   * Maximum concurrent pending transport tasks before dropping
+   */
+  transportMaxPending?: number;
 
   /**
    * Performance monitoring configuration
@@ -268,6 +280,12 @@ export interface QuzzConfig {
    * @default false
    */
   includeSourceLocation?: boolean;
+
+  /**
+   * Map error stacks using built-in Node source maps when available
+   * @default false
+   */
+  mapStackTraces?: boolean;
 
   /**
    * Custom plugins for extending functionality
