@@ -62,7 +62,10 @@
     @apply bg-background text-foreground;
   }
 
-  * {
+  input,
+  textarea,
+  select,
+  div {
     border-color: var(--color-border);
   }
 }
