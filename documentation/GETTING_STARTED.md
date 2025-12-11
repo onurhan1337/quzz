@@ -84,6 +84,13 @@ Create `quzz.config.js` in your project root:
 module.exports = {
   logLevel: "info",
   outputFormat: "compact",
+  traceId: {
+    mode: "structured",
+    includeRouteHint: true,
+    maxPathLength: 120,
+    maxSearchParamsLength: 80,
+    maxIdLength: 180,
+  },
   performance: {
     enabled: true,
     warnThreshold: 500,
@@ -105,8 +112,13 @@ if (process.env.NODE_ENV === "development") {
   configure({
     logLevel: "info",
     outputFormat: "compact",
+    traceId: {
+      includeRouteHint: true,
+      maxPathLength: 100,
+    },
   });
 }
+```
 
 export default function RootLayout({ children }) {
   return (
@@ -170,6 +182,32 @@ const DataTable = withRSCTrace(
 export default DataTable;
 ```
 
+### Route Hints for Better Debugging
+
+Add custom route hints to identify component context:
+
+```tsx
+const ProductPage = withRSCTrace(
+  async function ProductPage({ params }) {
+    const { slug } = await params;
+    const product = await fetchProduct(slug);
+    return <ProductDetails product={product} />;
+  },
+  {
+    componentName: "ProductPage",
+    routeHint: "/products/[slug]", // Custom route identifier
+  }
+);
+
+export default ProductPage;
+```
+
+**Output with route hints:**
+```
+ℹ️ [quzz] ProductPage rendered in 89ms
+Trace: req_abc123.ProductPage#1 (/products/[slug])
+```
+
 ### Component Filtering
 
 Only trace specific components:
@@ -191,7 +229,7 @@ Multi-line, detailed logs:
 ℹ️ [quzz] UserProfile rendered in 142ms
 Props: { userId: "user_123" }
 Memory: 45.2 MB
-Trace ID: trace_abc123
+Trace: req_abc123.UserProfile#1 (/users/profile)
 ```
 
 ### Compact Format
@@ -207,9 +245,9 @@ module.exports = {
 Output:
 
 ```
-UserProfile: 142ms (45MB) ✓
-DataTable: 523ms (45MB) ⚠
-ErrorComponent: 234ms ✗ Database error
+UserProfile: 142ms (45MB) ✓ (/users/profile)
+DataTable: 523ms (45MB) ⚠ (/admin/data?view=table)
+ErrorComponent: 234ms ✗ Database error (/api/users)
 ```
 
 ### JSON Format
@@ -249,6 +287,8 @@ import {
   getPerformanceSummary, // Get aggregated metrics
   clearMetrics,       // Clear metrics
   RSCBoundary,        // Boundary component
+  safeURLParsing,     // Safe URL parsing utility
+  truncatePath,       // Path truncation utility
 } from "quzz";
 ```
 

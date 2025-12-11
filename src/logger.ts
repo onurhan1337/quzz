@@ -4,9 +4,14 @@ import type {
   QuzzConfig,
   TraceMetadata,
   SerializedError,
+  FileTransportOptions,
+  HttpTransportOptions,
+  LogTransport,
+  QueueEntry,
 } from "./types";
 import { ConfigManager } from "./config";
 import { getFormatter } from "./formatters";
+import { appendFile } from "fs";
 
 /**
  * Log level priorities for filtering
@@ -30,6 +35,9 @@ const throttleMap = new Map<string, number>();
  */
 class Logger {
   private static instance: Logger;
+  private pendingTransports = 0;
+  private lastDropWarnAt = 0;
+  private readonly dropWarnIntervalMs = 5000;
 
   private constructor() {}
 
@@ -110,9 +118,80 @@ class Logger {
 
     // Send to custom transports
     if (config.transports && config.transports.length > 0) {
+      const timeoutMs = config.transportTimeoutMs ?? 500;
+      const maxPending = config.transportMaxPending ?? 100;
+
       await Promise.allSettled(
-        config.transports.map((transport) => transport(entry, formatted))
+        config.transports.map((transport) =>
+          this.runTransportWithGuards(
+            transport,
+            entry,
+            formatted,
+            timeoutMs,
+            maxPending
+          )
+        )
       );
+    }
+  }
+
+  private async runTransportWithGuards(
+    transport: LogTransport,
+    entry: LogEntry,
+    formatted: string,
+    timeoutMs: number,
+    maxPending: number
+  ): Promise<void> {
+    if (maxPending > 0 && this.pendingTransports >= maxPending) {
+      const now = Date.now();
+      if (now - this.lastDropWarnAt > this.dropWarnIntervalMs) {
+        console.warn(
+          "[quzz:transport] Dropping log entry: transport queue is full"
+        );
+        this.lastDropWarnAt = now;
+      }
+      return;
+    }
+
+    this.pendingTransports += 1;
+
+    try {
+      const result = transport(entry, formatted);
+      const maybePromise =
+        result &&
+        (typeof result === "object" || typeof result === "function") &&
+        "then" in result &&
+        typeof (result as { then?: unknown }).then === "function"
+          ? Promise.resolve(result as Promise<void>)
+          : null;
+
+      if (maybePromise) {
+        if (timeoutMs <= 0) {
+          await maybePromise;
+        } else {
+          let timer: NodeJS.Timeout | undefined;
+          await Promise.race([
+            maybePromise.finally(() => {
+              if (timer) {
+                clearTimeout(timer);
+              }
+            }),
+            new Promise<void>((resolve) => {
+              timer = setTimeout(resolve, timeoutMs);
+            }),
+          ]);
+        }
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Unknown error";
+      console.warn(`[quzz:transport] Transport failed: ${String(message)}`);
+    } finally {
+      this.pendingTransports = Math.max(0, this.pendingTransports - 1);
     }
   }
 
@@ -210,4 +289,132 @@ class Logger {
   }
 }
 
-export { Logger };
+function createConsoleTransport(): LogTransport {
+  return (entry, formatted) => {
+    const method =
+      entry.level === "error"
+        ? console.error
+        : entry.level === "warn"
+          ? console.warn
+          : console.log;
+    method(formatted);
+  };
+}
+
+function createFileTransport(options: FileTransportOptions): LogTransport {
+  const buffer: string[] = [];
+  let flushing = false;
+  const flushInterval = options.flushIntervalMs ?? 500;
+  const flush = () => {
+    if (flushing || buffer.length === 0) return;
+    flushing = true;
+    const payload = buffer.splice(0, buffer.length).join("\n") + "\n";
+    appendFile(options.path, payload, (err) => {
+      if (err) {
+        console.warn(`[quzz:file-transport] Write failed: ${err.message}`);
+      }
+
+      flushing = false;
+    });
+  };
+  setInterval(flush, flushInterval).unref();
+  return (_, formatted) => {
+    buffer.push(formatted);
+    if (buffer.length >= 20) {
+      flush();
+    }
+  };
+}
+
+function createHttpTransport(options: HttpTransportOptions): LogTransport {
+  if (typeof fetch !== "function") {
+    console.warn("[quzz:http-transport] fetch is not available");
+    return () => {};
+  }
+
+  const queue: QueueEntry[] = [];
+  let flushing = false;
+
+  const batchSize = options.batchSize ?? 10;
+  const flushInterval = options.flushIntervalMs ?? 1000;
+  const method = options.method ?? "POST";
+  const maxRetries = options.maxRetries ?? 3;
+
+  async function retryBatch(retryEligible: QueueEntry[]) {
+    if (retryEligible.length === 0) return;
+
+    const maxRetry = Math.max(0, ...retryEligible.map((i) => i.retryCount));
+    const wait = (maxRetry + 1) * 150;
+    await new Promise((res) => setTimeout(res, wait));
+
+    for (const item of retryEligible) {
+      queue.unshift({
+        entry: item.entry,
+        retryCount: item.retryCount + 1,
+      });
+    }
+  }
+
+  const flush = async () => {
+    if (flushing || queue.length === 0) return;
+
+    flushing = true;
+
+    const batch = queue.splice(0, batchSize);
+    const retryEligible = batch.filter((i) => i.retryCount < maxRetries);
+
+    if (retryEligible.length === 0) {
+      flushing = false;
+      return;
+    }
+
+    try {
+      const response = await fetch(options.url, {
+        method,
+        headers: {
+          "content-type": "application/json",
+          ...(options.headers || {}),
+        },
+        body: JSON.stringify(retryEligible.map((i) => i.entry)),
+      });
+
+      const retriableStatus =
+        (response.status >= 500 && response.status < 600) ||
+        response.status === 429;
+
+      if (!response.ok && retriableStatus) {
+        console.warn(
+          `[quzz:http-transport] Request failed: ${response.status}`
+        );
+        await retryBatch(retryEligible);
+      }
+    } catch (err) {
+      console.warn(
+        `[quzz:http-transport] Failed: ${
+          err instanceof Error ? err.message : err
+        }`
+      );
+      await retryBatch(retryEligible);
+    } finally {
+      flushing = false;
+      if (queue.length >= batchSize) flush();
+    }
+  };
+
+  setInterval(flush, flushInterval).unref();
+
+  return (entry) => {
+    queue.push({ entry, retryCount: 0 });
+
+    if (queue.length >= batchSize) {
+      flush();
+    }
+  };
+}
+
+export {
+  Logger,
+  createConsoleTransport,
+  createFileTransport,
+  createHttpTransport,
+};

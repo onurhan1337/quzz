@@ -1,17 +1,18 @@
-import type { ComponentType } from "react";
+import type { ComponentType, ReactElement } from "react";
 import type { RSCTraceOptions, TraceMetadata } from "./types";
 import {
   getComponentName,
   sanitizeProps,
   sanitizePropsAsync,
   serializeError,
-  generateId,
+  processPropsWithPlugins,
 } from "./utils";
 import { ConfigManager } from "./config";
 import { TraceContext } from "./context";
 import { PerformanceMonitor } from "./performance";
 import { Logger } from "./logger";
 import { ContextManager } from "./storage/context-manager";
+import { TraceIdGenerator, resolveRouteHint } from "./trace-id";
 
 // Re-export types and configuration
 export type {
@@ -27,19 +28,31 @@ export type {
   TracePlugin,
   LogFormatter,
   LogTransport,
+  FileTransportOptions,
+  HttpTransportOptions,
   PerformanceConfig,
   PropsConfig,
   VisualizerConfig,
   PropSerializationStrategy,
   EnvConfig,
+  TraceIdConfig,
 } from "./types";
 
 export { VALID_LOG_LEVELS, VALID_OUTPUT_FORMATS } from "./types";
 
 export type { SanitizePropsConfig } from "./utils";
 export { safeStringify } from "./utils";
+export { safeURLParsing, truncatePath } from "./utils/url-parse";
 
-export { configure, getConfig, resetConfig } from "./config";
+export {
+  configure,
+  getConfig,
+  resetConfig,
+  reloadConfig,
+  configurePreset,
+  defineConfig,
+  getPresets,
+} from "./config";
 export {
   hasConfigFile,
   getConfigFilePath,
@@ -49,6 +62,11 @@ export { PerformanceMonitor } from "./performance";
 export { TraceContext } from "./context";
 export { RSCBoundary } from "./boundary";
 export { TraceCollector } from "./visualizer/trace-collector";
+export {
+  createConsoleTransport,
+  createFileTransport,
+  createHttpTransport,
+} from "./logger";
 export type {
   CollectedTrace,
   TraceSession,
@@ -153,7 +171,7 @@ export function withRSCTrace<P extends object>(
   const config = configManager.mergeOptions(componentOptions);
   const componentName =
     componentOptions.componentName ||
-    getComponentName(Component as ComponentType<any>);
+    getComponentName(Component as ComponentType<unknown>);
   const tags = componentOptions.tags;
 
   // Check component filter
@@ -172,7 +190,14 @@ export function withRSCTrace<P extends object>(
       debugMode: config.debugContext,
     });
 
-    const traceId = generateId("trace");
+    const routeHint = resolveRouteHint(props, componentOptions, config);
+    const traceIds = TraceIdGenerator.getInstance().generate({
+      componentName,
+      config,
+      contextId: contextManager.getContextInfo()?.contextId,
+      routeHint,
+    });
+    const traceId = traceIds.traceId;
     const parentTraceId = context?.getCurrentParentId();
 
     const metadata: TraceMetadata = {
@@ -181,6 +206,9 @@ export function withRSCTrace<P extends object>(
       renderStart: Date.now(),
       traceId,
       parentTrace: parentTraceId,
+      routeHint: traceIds.routeHint,
+      rootTraceId: traceIds.rootTraceId,
+      sequence: traceIds.sequence,
     };
 
     const executeComponent = async () => {
@@ -190,13 +218,15 @@ export function withRSCTrace<P extends object>(
       const renderStartTime = performance.now();
 
       if (config.debugContext) {
-        const traceStorage = ContextManager.getInstance().getStorage("trace");
+        const contextManager = ContextManager.getInstance();
+        const traceStorage = contextManager.getStorage("trace");
         const currentStore = traceStorage?.getStore();
+        const traceStack = contextManager.getTraceStack();
         console.debug(`[quzz:getParent] Component "${componentName}"`, {
           traceId,
           parentTraceId,
           hasStore: !!currentStore,
-          traceStack: currentStore ? (currentStore as any).traceStack : [],
+          traceStack,
         });
       }
 
@@ -248,16 +278,12 @@ export function withRSCTrace<P extends object>(
       await logger.info(componentName, `Rendering started`, metadata, tags);
 
       if (shouldLogProps) {
-        let capturedProps = { ...props } as Record<string, unknown>;
-        if (config.plugins) {
-          for (const plugin of config.plugins) {
-            if (plugin.onPropsCapture) {
-              capturedProps = plugin.onPropsCapture(capturedProps);
-            }
-          }
-        }
+        const capturedProps = processPropsWithPlugins(
+          props as Record<string, unknown>,
+          config.plugins,
+          config.maxPropDepth ?? 3
+        );
 
-        // Use async sanitization if awaitProps is enabled
         const sanitized = config.props?.awaitProps
           ? await sanitizePropsAsync(capturedProps, config)
           : sanitizeProps(capturedProps, config);
@@ -272,8 +298,10 @@ export function withRSCTrace<P extends object>(
       }
 
       try {
-        const ComponentAny = Component as any;
-        const result = await Promise.resolve(ComponentAny(props));
+        const ComponentFn = Component as (
+          props: P
+        ) => Promise<ReactElement> | ReactElement;
+        const result = await Promise.resolve(ComponentFn(props));
 
         const duration = performance.now() - renderStartTime;
         metadata.renderEnd = Date.now();
@@ -383,7 +411,14 @@ export function withRSCTrace<P extends object>(
         return result;
       } catch (error) {
         const maxErrorDepth = config.props?.maxErrorDepth ?? 3;
-        const serializedError = serializeError(error as Error, maxErrorDepth);
+        const serializedError = serializeError(
+          error as Error,
+          maxErrorDepth,
+          0,
+          {
+            mapStackTraces: config.mapStackTraces,
+          }
+        );
         metadata.error = serializedError;
 
         if (config.debugContext) {
@@ -451,7 +486,7 @@ export function withRSCTrace<P extends object>(
 
   TracedComponent.displayName = `withRSCTrace(${componentName})`;
 
-  return TracedComponent as any;
+  return TracedComponent as unknown as ComponentType<P>;
 }
 
 export default withRSCTrace;

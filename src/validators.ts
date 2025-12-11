@@ -11,6 +11,8 @@ export class ConfigValidator {
   private static readonly MAX_STRING_LENGTH_LIMIT = 10000;
   private static readonly MAX_THROTTLE_MS = 60000;
   private static readonly WARN_THRESHOLD_LIMIT = 30000;
+  private static readonly MAX_TRANSPORT_TIMEOUT_MS = 60000;
+  private static readonly MAX_TRANSPORT_PENDING = 10000;
 
   static validate(config: Partial<QuzzConfig>): ValidationResult {
     const errors: string[] = [];
@@ -44,6 +46,28 @@ export class ConfigValidator {
       }
     }
 
+    if (config.transportTimeoutMs !== undefined) {
+      if (
+        config.transportTimeoutMs < 0 ||
+        config.transportTimeoutMs > this.MAX_TRANSPORT_TIMEOUT_MS
+      ) {
+        errors.push(
+          `transportTimeoutMs must be between 0 and ${this.MAX_TRANSPORT_TIMEOUT_MS}`
+        );
+      }
+    }
+
+    if (config.transportMaxPending !== undefined) {
+      if (
+        config.transportMaxPending < 0 ||
+        config.transportMaxPending > this.MAX_TRANSPORT_PENDING
+      ) {
+        errors.push(
+          `transportMaxPending must be between 0 and ${this.MAX_TRANSPORT_PENDING}`
+        );
+      }
+    }
+
     if (config.performance?.warnThreshold !== undefined) {
       const threshold = config.performance.warnThreshold;
       if (threshold < 0 || threshold > this.WARN_THRESHOLD_LIMIT) {
@@ -60,6 +84,27 @@ export class ConfigValidator {
 
     if (config.forceEnable) {
       warnings.push("forceEnable is enabled - tracing will run in production");
+    }
+
+    if (config.traceId) {
+      if (
+        config.traceId.maxRouteLength !== undefined &&
+        config.traceId.maxRouteLength <= 0
+      ) {
+        errors.push("traceId.maxRouteLength must be greater than 0");
+      }
+      if (
+        config.traceId.maxSearchParamsLength !== undefined &&
+        config.traceId.maxSearchParamsLength <= 0
+      ) {
+        errors.push("traceId.maxSearchParamsLength must be greater than 0");
+      }
+      if (
+        config.traceId.maxIdLength !== undefined &&
+        config.traceId.maxIdLength <= 0
+      ) {
+        errors.push("traceId.maxIdLength must be greater than 0");
+      }
     }
 
     if (config.logLevel === "trace" || config.logLevel === "debug") {
@@ -271,7 +316,9 @@ export class MemoryLeakDetector {
 }
 
 export class StorageHealthValidator {
-  static validateStorageHealth(stats: Record<string, any>): ValidationResult {
+  static validateStorageHealth(
+    stats: Record<string, import("./storage/context-manager").StorageStats>
+  ): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 

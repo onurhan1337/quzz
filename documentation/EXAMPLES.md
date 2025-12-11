@@ -34,6 +34,7 @@ export default withRSCTrace(UserProfile);
 ```
 ℹ️ [quzz] UserProfile rendered in 142ms
 Props: { userId: "user_123" }
+Trace: req_ab12.UserProfile#3 (/users?tab=profile)
 ```
 
 ### Custom Component Name
@@ -45,6 +46,26 @@ const TracedProfile = withRSCTrace(UserProfile, {
 });
 
 export default TracedProfile;
+```
+
+### Custom Route Hints
+
+```tsx
+const ProductPage = withRSCTrace(ProductComponent, {
+  componentName: "ProductPage",
+  routeHint: "/products?category=electronics", // Custom route hint
+  tags: ["ecommerce", "product"],
+});
+
+export default ProductPage;
+```
+
+**Terminal output:**
+
+```
+ℹ️ [quzz] ProductPage rendered in 89ms
+Props: { productId: "prod_456" }
+Trace: req_cd34.ProductPage#1 (/products?category=electronics)
 ```
 
 ## Next.js 15+ Async Props
@@ -622,6 +643,101 @@ module.exports = {
 };
 ```
 
+## URL Processing and Route Hints
+
+### Configure Trace ID Route Hints
+
+```javascript
+// quzz.config.js
+module.exports = {
+  traceId: {
+    mode: "structured",
+    includeRouteHint: true,
+    maxPathLength: 120,        // Max URL path length before truncation
+    maxSearchParamsLength: 80, // Max query parameters length
+    maxRouteLength: 120,       // Max total route hint length
+    maxIdLength: 180,          // Max total trace ID length
+  },
+};
+```
+
+### Route Hint Examples
+
+```tsx
+// Automatic route hint extraction from props
+async function ProductPage({ params, searchParams }: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ category?: string }>;
+}) {
+  const { slug } = await params;
+  const { category } = await searchParams;
+  
+  return <div>Product: {slug}</div>;
+}
+
+export default withRSCTrace(ProductPage);
+```
+
+**Output with automatic route extraction:**
+```
+ℹ️ [quzz] ProductPage rendered in 156ms
+Trace: req_abc123.ProductPage#1 (/products/wireless-keyboard?category=electronics)
+```
+
+### Long URL Handling
+
+```tsx
+const CategoryPage = withRSCTrace(CategoryComponent, {
+  componentName: "CategoryPage",
+  routeHint: "/marketplace/electronics/computers/laptops/gaming/high-performance/graphics-cards/nvidia?brand=asus&price_min=500&price_max=2000&sort=price_desc&page=1",
+});
+```
+
+**Output with intelligent truncation:**
+```
+ℹ️ [quzz] CategoryPage rendered in 234ms
+Trace: req_def456.CategoryPage#1 (/marketplace/.../nvidia?brand=asus&price_mi...)
+```
+
+### URL Security Examples
+
+quzz safely handles potentially dangerous URLs:
+
+```tsx
+// These are safely processed without security risks
+const examples = [
+  "javascript:alert('xss')",           // → Treated as plain text path
+  "data:text/html,<script>evil</script>", // → Treated as plain text path
+  "https://evil.com@legitimate.com/path",  // → Safely parsed
+  "https://example.com/path\r\nSet-Cookie: malicious=payload", // → Sanitized
+];
+
+examples.forEach(url => {
+  console.log("Safe processing:", safeURLParsing(url));
+});
+```
+
+### Using URL Processing Utilities
+
+```tsx
+import { safeURLParsing, truncatePath } from "quzz";
+
+// Safe URL parsing
+const parsed = safeURLParsing("https://example.com/very/long/path");
+console.log(parsed);
+// { domain: "https://example.com", path: "/very/long/path" }
+
+// Intelligent path truncation
+const truncated = truncatePath("/products/electronics/smartphones/iphone-15-pro-max/reviews", 30);
+console.log(truncated);
+// "/products/.../reviews"
+
+// URL with domain truncation
+const urlTruncated = truncatePath("https://example.com/very/long/path/to/resource", 40);
+console.log(urlTruncated);
+// "https://example.com/.../resource"
+```
+
 ## Advanced Patterns
 
 ### Component Filtering
@@ -639,6 +755,26 @@ module.exports = {
 module.exports = {
   sensitiveKeys: ["apiKey", "secretToken", "creditCard", "ssn"],
 };
+```
+
+### Disable Route Hints
+
+```javascript
+// Disable route hints globally
+module.exports = {
+  traceId: {
+    includeRouteHint: false,
+  },
+};
+```
+
+Or per component:
+
+```tsx
+const PrivateComponent = withRSCTrace(MyComponent, {
+  componentName: "PrivateComponent",
+  routeHint: undefined, // No route hint
+});
 ```
 
 ### Context Snapshots

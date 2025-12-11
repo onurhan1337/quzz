@@ -35,9 +35,9 @@ export interface ContextManagerOptions {
 type StorageMap = Map<string, StorageInstance>;
 
 export class ContextManager {
-  private static instance: ContextManager;
+  private static instance: ContextManager | undefined;
   private readonly storages: StorageMap = new Map();
-  private readonly debugMode: boolean;
+  private debugMode: boolean;
   private readonly enableSnapshots: boolean;
 
   private traceStorage: TraceStorage | null = null;
@@ -57,7 +57,7 @@ export class ContextManager {
   }
 
   static getInstance(options?: ContextManagerOptions): ContextManager {
-    if (!ContextManager.instance) {
+    if (ContextManager.instance === undefined) {
       ContextManager.instance = new ContextManager(options);
     }
     return ContextManager.instance;
@@ -66,8 +66,7 @@ export class ContextManager {
   static reset(): void {
     if (ContextManager.instance) {
       ContextManager.instance.dispose();
-      (ContextManager as unknown as { instance?: ContextManager }).instance =
-        undefined;
+      ContextManager.instance = undefined;
     }
   }
 
@@ -122,11 +121,12 @@ export class ContextManager {
     return false;
   }
 
-  getStorage<T>(name: string): BaseAsyncStorage<T> | undefined {
+  getStorage<T = unknown>(name: string): BaseAsyncStorage<T> | undefined {
     const instance = this.storages.get(name);
-    return instance?.enabled
-      ? (instance.storage as BaseAsyncStorage<T>)
-      : undefined;
+    if (!instance?.enabled) {
+      return undefined;
+    }
+    return instance.storage as BaseAsyncStorage<T>;
   }
 
   enableStorage(name: string): boolean {
@@ -176,8 +176,20 @@ export class ContextManager {
     return this.traceStorage?.getCurrentParentId();
   }
 
+  getTraceStack(): string[] {
+    return this.traceStorage?.getTraceStack() ?? [];
+  }
+
   getTraceHierarchy(): string[] {
     return this.traceStorage?.getTraceHierarchy() ?? [];
+  }
+
+  getContextInfo(): ReturnType<TraceStorage["getContextInfo"]> {
+    if (!this.traceStorage) {
+      return null;
+    }
+    this.traceStorage.ensureContext();
+    return this.traceStorage.getContextInfo();
   }
 
   recordMemorySnapshot(): void {
@@ -382,8 +394,7 @@ export class ContextManager {
 
   updateFromConfig(config: Partial<QuzzConfig>): void {
     if (config.debugContext !== undefined) {
-      (this as unknown as { debugMode: boolean }).debugMode =
-        config.debugContext;
+      this.debugMode = config.debugContext;
 
       for (const instance of this.storages.values()) {
         if ("debugMode" in instance.storage) {

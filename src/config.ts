@@ -2,50 +2,17 @@ import type {
   QuzzConfig,
   RSCTraceOptions,
   EnvConfig,
-  LogLevel,
-  OutputFormat,
+  QuzzPresetName,
+  QuzzPreset,
 } from "./types";
-import { VALID_LOG_LEVELS, VALID_OUTPUT_FORMATS } from "./types";
-import { ConfigValidator, validateEnvironment } from "./validators";
-import { loadConfigFromFile } from "./config-loader";
-
-/**
- * Parse environment variables for quzz configuration
- * Supports: QUZZ_ENABLED, QUZZ_LOG_LEVEL, QUZZ_OUTPUT_FORMAT, QUZZ_FORCE_ENABLE
- */
-function parseEnvConfig(): EnvConfig {
-  const envConfig: EnvConfig = {};
-
-  // QUZZ_ENABLED: true/false or 1/0
-  if (process.env.QUZZ_ENABLED !== undefined) {
-    const value = process.env.QUZZ_ENABLED.toLowerCase();
-    envConfig.enabled = value === "true" || value === "1";
-  }
-
-  // QUZZ_LOG_LEVEL: silent, error, warn, info, debug, trace
-  if (process.env.QUZZ_LOG_LEVEL) {
-    const level = process.env.QUZZ_LOG_LEVEL.toLowerCase() as LogLevel;
-    if (VALID_LOG_LEVELS.includes(level)) {
-      envConfig.logLevel = level;
-    }
-  }
-
-  // QUZZ_OUTPUT_FORMAT: pretty, json, compact
-  if (process.env.QUZZ_OUTPUT_FORMAT) {
-    const format = process.env.QUZZ_OUTPUT_FORMAT.toLowerCase() as OutputFormat;
-    if (VALID_OUTPUT_FORMATS.includes(format)) {
-      envConfig.outputFormat = format;
-    }
-  }
-
-  // QUZZ_FORCE_ENABLE: true/false or 1/0
-  if (process.env.QUZZ_FORCE_ENABLE !== undefined) {
-    const value = process.env.QUZZ_FORCE_ENABLE.toLowerCase();
-    envConfig.forceEnable = value === "true" || value === "1";
-  }
-
-  return envConfig;
-}
+import { loadConfigFromFileAsync } from "./config-loader";
+import {
+  mergeConfigLayers,
+  parseEnvConfig,
+  resolveEnabled,
+  validateConfigStrict,
+  validateConfigWarnings,
+} from "./config-helpers";
 
 /**
  * Default configuration
@@ -58,11 +25,13 @@ const DEFAULT_CONFIG: Required<
 > = {
   logLevel: "error",
   outputFormat: "pretty",
+  transportTimeoutMs: 500,
+  transportMaxPending: 100,
   performance: {
     enabled: false,
-    warnThreshold: 1000,
+    warnThreshold: 750,
     trackMemory: false,
-    memoryThreshold: 50 * 1024 * 1024, // 50MB
+    memoryThreshold: 30 * 1024 * 1024,
     aggregate: false,
     enableHeapSnapshots: false,
     heapSnapshotDir: "./heap-snapshots",
@@ -82,6 +51,7 @@ const DEFAULT_CONFIG: Required<
   maxStringLength: 200,
   contextTracking: true,
   includeSourceLocation: false,
+  mapStackTraces: false,
   throttleMs: 0,
   trackTotalLatency: false,
   autoLinkParent: true,
@@ -94,6 +64,128 @@ const DEFAULT_CONFIG: Required<
   verboseMode: false,
   suppressConfigWarnings: false,
   enableHyperlinks: true,
+  traceId: {
+    mode: "structured",
+    includeRouteHint: true,
+    maxRouteLength: 120,
+    maxSearchParamsLength: 80,
+    maxIdLength: 180,
+    maxPathLength: 120,
+  },
+};
+
+const PRESETS: Record<QuzzPresetName, QuzzPreset> = {
+  debug: {
+    logLevel: "debug",
+    outputFormat: "pretty",
+    logProps: true,
+    performance: {
+      enabled: true,
+      warnThreshold: 500,
+      trackMemory: false,
+      aggregate: false,
+      enableHeapSnapshots: false,
+    },
+    props: {
+      awaitProps: false,
+      showPromiseTypes: true,
+    },
+    visualizer: {
+      enabled: true,
+    },
+    debugContext: true,
+    enableSnapshots: true,
+    verboseMode: true,
+    throttleMs: 0,
+    enableHyperlinks: true,
+    traceId: {
+      mode: "structured",
+      includeRouteHint: true,
+      maxRouteLength: 120,
+      maxSearchParamsLength: 80,
+      maxIdLength: 180,
+      maxPathLength: 120,
+    },
+  },
+  perf: {
+    logLevel: "info",
+    outputFormat: "compact",
+    logProps: false,
+    performance: {
+      enabled: true,
+      warnThreshold: 600,
+      trackMemory: true,
+      memoryThreshold: 30 * 1024 * 1024,
+      aggregate: true,
+      enableHeapSnapshots: false,
+    },
+    props: {
+      awaitProps: false,
+      showPromiseTypes: false,
+    },
+    visualizer: {
+      enabled: false,
+    },
+    debugContext: false,
+    enableSnapshots: false,
+    verboseMode: false,
+    throttleMs: 50,
+    enableHyperlinks: true,
+    traceId: {
+      mode: "structured",
+      includeRouteHint: true,
+      maxRouteLength: 120,
+      maxSearchParamsLength: 80,
+      maxIdLength: 180,
+      maxPathLength: 120,
+    },
+  },
+  minimal: {
+    logLevel: "warn",
+    outputFormat: "compact",
+    logProps: false,
+    performance: {
+      enabled: false,
+      warnThreshold: 750,
+      trackMemory: false,
+      aggregate: false,
+      enableHeapSnapshots: false,
+    },
+    props: {
+      awaitProps: false,
+      showPromiseTypes: false,
+    },
+    visualizer: {
+      enabled: false,
+    },
+    debugContext: false,
+    enableSnapshots: false,
+    verboseMode: false,
+    throttleMs: 100,
+    enableHyperlinks: true,
+    traceId: {
+      mode: "structured",
+      includeRouteHint: true,
+      maxRouteLength: 120,
+      maxSearchParamsLength: 80,
+      maxIdLength: 180,
+      maxPathLength: 120,
+    },
+  },
+};
+
+const fileConfigPromise: Promise<QuzzConfig | null> =
+  typeof process !== "undefined"
+    ? loadConfigFromFileAsync()
+    : Promise.resolve(null);
+
+type ResetOptions = {
+  applyEnv?: boolean;
+  fileConfig?: QuzzConfig | null;
+};
+
+type ReloadOptions = ResetOptions & {
+  reloadFile?: boolean;
 };
 
 /**
@@ -102,38 +194,27 @@ const DEFAULT_CONFIG: Required<
 class ConfigManager {
   private static instance: ConfigManager;
   private config: QuzzConfig;
-  private warnedKeys = new Set<string>();
+  private userConfigured = false;
+  private fileConfigApplied = false;
 
   private constructor() {
-    // Priority order: defaults < quzz.config.js < env vars < programmatic configure()
-    const fileConfig = loadConfigFromFile();
+    // Priority order: defaults < quzz.config.* (async) < env vars < programmatic configure()
     const envConfig = parseEnvConfig();
 
-    if (fileConfig) {
-      this.config = {
-        ...DEFAULT_CONFIG,
-        ...fileConfig,
-        ...envConfig,
-        performance: {
-          ...DEFAULT_CONFIG.performance,
-          ...fileConfig.performance,
-        },
-        props: {
-          ...DEFAULT_CONFIG.props,
-          ...fileConfig.props,
-        },
-        visualizer: {
-          ...DEFAULT_CONFIG.visualizer,
-          ...fileConfig.visualizer,
-        },
-      };
-    } else {
-      // No file config, merge defaults with env vars
-      this.config = {
-        ...DEFAULT_CONFIG,
-        ...envConfig,
-      };
-    }
+    // Start with defaults + env
+    this.config = mergeConfigLayers(DEFAULT_CONFIG, envConfig, DEFAULT_CONFIG);
+
+    // Apply file config when ready, unless user already reconfigured
+    fileConfigPromise
+      .then((fileConfig) => {
+        if (!fileConfig || this.userConfigured || this.fileConfigApplied) {
+          return;
+        }
+        this.applyFileConfig(fileConfig, envConfig);
+      })
+      .catch(() => {
+        /* noop: keep defaults+env */
+      });
   }
 
   static getInstance(): ConfigManager {
@@ -143,150 +224,25 @@ class ConfigManager {
     return ConfigManager.instance;
   }
 
+  private applyFileConfig(fileConfig: QuzzConfig, envConfig: EnvConfig): void {
+    const withFile = mergeConfigLayers(
+      DEFAULT_CONFIG,
+      fileConfig,
+      DEFAULT_CONFIG
+    );
+    this.config = mergeConfigLayers(withFile, envConfig, DEFAULT_CONFIG);
+    this.fileConfigApplied = true;
+  }
+
   /**
    * Configure quzz globally
    */
   configure(config: Partial<QuzzConfig>): void {
-    // Validate configuration
-    this.validateConfig(config);
+    this.userConfigured = true;
+    validateConfigStrict(config);
+    validateConfigWarnings(config, config.suppressConfigWarnings ?? false);
 
-    const validation = ConfigValidator.validate(config);
-    if (!validation.valid) {
-      throw new Error(`Invalid configuration: ${validation.errors.join(", ")}`);
-    }
-
-    if (validation.warnings.length > 0 && config.logLevel !== "silent") {
-      validation.warnings.forEach((warning) => {
-        console.warn(`[quzz:config] Warning: ${warning}`);
-      });
-    }
-
-    const envValidation = validateEnvironment();
-    if (!envValidation.valid) {
-      throw new Error(`Environment issues: ${envValidation.errors.join(", ")}`);
-    }
-
-    if (envValidation.warnings.length > 0 && config.logLevel !== "silent") {
-      envValidation.warnings.forEach((warning) => {
-        console.warn(`[quzz:env] Warning: ${warning}`);
-      });
-    }
-
-    this.config = {
-      ...this.config,
-      ...config,
-      performance: {
-        ...DEFAULT_CONFIG.performance,
-        ...config.performance,
-      },
-      props: {
-        ...DEFAULT_CONFIG.props,
-        ...config.props,
-      },
-      visualizer: {
-        ...DEFAULT_CONFIG.visualizer,
-        ...config.visualizer,
-      },
-    };
-  }
-
-  /**
-   * Emit a warning only once per key
-   */
-  private warnOnce(key: string, message: string): void {
-    if (this.warnedKeys.has(key)) {
-      return;
-    }
-    this.warnedKeys.add(key);
-    console.warn(message);
-  }
-
-  /**
-   * Validate configuration options
-   */
-  private validateConfig(config: Partial<QuzzConfig>): void {
-    const suppressWarnings = config.suppressConfigWarnings ?? false;
-
-    // Validate log level
-    if (config.logLevel && !VALID_LOG_LEVELS.includes(config.logLevel)) {
-      this.warnOnce(
-        "invalid-logLevel",
-        `[quzz] Invalid logLevel "${config.logLevel}". Valid options: ${VALID_LOG_LEVELS.join(", ")}`
-      );
-    }
-
-    // Validate output format
-    if (
-      config.outputFormat &&
-      config.outputFormat !== "custom" &&
-      !VALID_OUTPUT_FORMATS.includes(config.outputFormat)
-    ) {
-      this.warnOnce(
-        "invalid-outputFormat",
-        `[quzz] Invalid outputFormat "${config.outputFormat}". Valid options: ${VALID_OUTPUT_FORMATS.join(", ")}, custom`
-      );
-    }
-
-    // Validate performance config
-    if (config.performance) {
-      if (
-        config.performance.warnThreshold !== undefined &&
-        config.performance.warnThreshold < 0
-      ) {
-        this.warnOnce(
-          "invalid-warnThreshold",
-          "[quzz] Performance warnThreshold must be positive"
-        );
-      }
-    }
-
-    // Validate props config
-    if (config.props && !suppressWarnings) {
-      if (config.props.awaitProps && config.logLevel !== "silent") {
-        this.warnOnce(
-          "awaitProps-enabled",
-          "[quzz] Warning: awaitProps is enabled. This may trigger side effects (DB/network calls) or cause performance issues."
-        );
-      }
-      if (
-        config.props.awaitTimeout !== undefined &&
-        config.props.awaitTimeout < 100
-      ) {
-        this.warnOnce(
-          "awaitTimeout-too-low",
-          "[quzz] Props awaitTimeout should be at least 100ms to avoid premature timeouts"
-        );
-      }
-    }
-
-    // Validate max depth
-    if (
-      config.maxPropDepth !== undefined &&
-      (config.maxPropDepth < 0 || config.maxPropDepth > 10)
-    ) {
-      this.warnOnce(
-        "maxPropDepth-out-of-range",
-        "[quzz] maxPropDepth should be between 0 and 10 for optimal performance"
-      );
-    }
-
-    // Validate component filter
-    if (config.componentFilter) {
-      try {
-        // Test regex is valid
-        "test".match(config.componentFilter);
-      } catch (e) {
-        console.error("[quzz] Invalid componentFilter regex:", e);
-      }
-    }
-
-    // Warn about production usage
-    if (config.forceEnable && process.env.NODE_ENV === "production") {
-      this.warnOnce(
-        "production-enabled",
-        "[quzz] Warning: Tracing is force-enabled in production. This may impact performance."
-      );
-    }
+    this.config = mergeConfigLayers(this.config, config, DEFAULT_CONFIG);
   }
 
   /**
@@ -337,44 +293,34 @@ class ConfigManager {
         ...DEFAULT_CONFIG.visualizer,
         ...(this.config.visualizer || {}),
       },
+      traceId: {
+        ...DEFAULT_CONFIG.traceId,
+        ...(this.config.traceId || {}),
+        ...(componentOptions.traceId || {}),
+      },
     };
   }
 
   /**
    * Reset to default configuration
    */
-  reset(): void {
-    this.config = { ...DEFAULT_CONFIG };
+  reset(options: ResetOptions = {}): void {
+    const applyEnv = options.applyEnv ?? true;
+    const fileConfig = options.fileConfig;
+    const fileMerged = fileConfig
+      ? mergeConfigLayers(DEFAULT_CONFIG, fileConfig, DEFAULT_CONFIG)
+      : { ...DEFAULT_CONFIG };
+    const envConfig = applyEnv ? parseEnvConfig() : {};
+    this.config = mergeConfigLayers(fileMerged, envConfig, DEFAULT_CONFIG);
+    this.userConfigured = false;
+    this.fileConfigApplied = Boolean(fileConfig);
   }
 
   /**
    * Check if tracing is enabled based on environment and config
    */
   isEnabled(options?: RSCTraceOptions): boolean {
-    // QUZZ_DISABLE takes precedence over everything
-    if (process.env.QUZZ_DISABLE === "true") {
-      return false;
-    }
-
-    // QUZZ_ENABLED explicitly enables tracing
-    if (process.env.QUZZ_ENABLED !== undefined) {
-      const value = process.env.QUZZ_ENABLED.toLowerCase();
-      return value === "true" || value === "1";
-    }
-
-    const forceEnable = options?.forceEnable ?? this.config.forceEnable;
-    if (forceEnable) {
-      return true;
-    }
-
-    if (process.env.NODE_ENV === "production") {
-      return false;
-    }
-
-    return (
-      process.env.NODE_ENV === "development" ||
-      process.env.NODE_ENV === undefined
-    );
+    return resolveEnabled(this.config, { traceOptions: options });
   }
 }
 
@@ -401,8 +347,56 @@ export function getConfig(): QuzzConfig {
 /**
  * Reset configuration to defaults
  */
-export function resetConfig(): void {
-  ConfigManager.getInstance().reset();
+export function resetConfig(options?: ResetOptions): void {
+  ConfigManager.getInstance().reset(options);
+}
+
+export async function reloadConfig(options?: ReloadOptions): Promise<void> {
+  const fileConfig =
+    options?.reloadFile === false ? null : await loadConfigFromFileAsync();
+  ConfigManager.getInstance().reset({
+    applyEnv: options?.applyEnv,
+    fileConfig,
+  });
+}
+
+export function configurePreset(
+  name: QuzzPresetName,
+  overrides?: Partial<QuzzConfig>
+): void {
+  const preset = PRESETS[name];
+  if (!preset) {
+    throw new Error(`Unknown preset: ${name}`);
+  }
+  const merged: QuzzConfig = {
+    ...preset,
+    ...overrides,
+    performance: {
+      ...preset.performance,
+      ...overrides?.performance,
+    },
+    props: {
+      ...preset.props,
+      ...overrides?.props,
+    },
+    visualizer: {
+      ...preset.visualizer,
+      ...overrides?.visualizer,
+    },
+    traceId: {
+      ...preset.traceId,
+      ...overrides?.traceId,
+    },
+  };
+  ConfigManager.getInstance().configure(merged);
+}
+
+export function defineConfig(config: QuzzConfig): QuzzConfig {
+  return config;
+}
+
+export function getPresets(): Record<QuzzPresetName, QuzzPreset> {
+  return { ...PRESETS };
 }
 
 export { ConfigManager };

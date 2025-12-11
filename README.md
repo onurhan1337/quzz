@@ -17,8 +17,10 @@ Traditional debugging tools like React DevTools don't work with React Server Com
 - **Props logging** - Automatic sensitive data redaction
 - **Next.js 15+ support** - Handles async `params` and `searchParams`
 - **Multiple output formats** - Pretty, compact, or JSON
+- **Meaningful trace IDs** - Request-scoped IDs with component counters and optional route hints
 - **Production-safe** - Automatically disabled in production, zero overhead
 - **TypeScript support** - Fully typed configuration and APIs
+- **Presets and type-safe config** - `configurePreset` and `defineConfig` for fast setup
 
 ## Installation
 
@@ -41,11 +43,20 @@ async function UserProfile({ userId }: { userId: string }) {
 export default withRSCTrace(UserProfile);
 ```
 
+Prefer presets for zero thinking:
+
+```ts
+import { configurePreset } from "quzz";
+
+configurePreset("debug");
+```
+
 Terminal output:
 
 ```
 ℹ️ [quzz] UserProfile rendered in 142ms
 Props: { userId: "user_123" }
+Trace: req_ab12.UserProfile#3 (/users?tab=profile)
 ```
 
 ## Configuration
@@ -60,12 +71,31 @@ module.exports = {
   performance: {
     warnThreshold: 500, // Warn if render > 500ms
   },
+  traceId: { includeRouteHint: true, maxRouteLength: 120 },
   componentFilter: /^(Blog|Product)/, // Only trace specific components
   sensitiveKeys: ["apiKey", "secretToken"], // Additional keys to redact
 };
 ```
 
+Type-safe config file:
+
+```ts
+import { defineConfig } from "quzz";
+
+export default defineConfig({
+  logLevel: "debug",
+  outputFormat: "grouped",
+  performance: { enabled: true, warnThreshold: 500 },
+  visualizer: { enabled: true },
+});
+```
+
 Configuration is automatically loaded. See [full configuration guide](./documentation/CONFIGURATION.md) for all options.
+
+### Logging formats and transports
+
+- Formats: `pretty`, `compact`, `json`, `grouped`, or a custom formatter.
+- Transports: use `createConsoleTransport`, `createFileTransport`, or `createHttpTransport`, or provide your own.
 
 ## Documentation
 

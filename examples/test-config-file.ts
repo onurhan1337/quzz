@@ -13,9 +13,9 @@ import {
 
 console.log("🧪 Testing quzz.config.js/mjs File Loading\n");
 
-console.log("=" .repeat(80));
+console.log("=".repeat(80));
 console.log("Config File Detection");
-console.log("=" .repeat(80));
+console.log("=".repeat(80));
 
 // Check if config file exists
 const configFileExists = hasConfigFile();
@@ -26,33 +26,33 @@ if (configFileExists) {
   console.log(`Config file path: ${configPath}`);
 } else {
   console.log(
-    "No config file found. Expected one of: quzz.config.mjs, quzz.config.js, quzz.config.cjs"
+    "No config file found. Expected one of: quzz.config.ts, quzz.config.js"
   );
 }
 
 console.log();
 
-console.log("=" .repeat(80));
+console.log("=".repeat(80));
 console.log("Configuration Priority Order");
-console.log("=" .repeat(80));
+console.log("=".repeat(80));
 console.log("1. defaults (lowest priority)");
-console.log("2. quzz.config.mjs / quzz.config.js / quzz.config.cjs");
+console.log("2. quzz.config.ts / quzz.config.js");
 console.log("3. environment variables (QUZZ_*)");
 console.log("4. programmatic configure() (highest priority)");
 console.log();
 
-console.log("=" .repeat(80));
+console.log("=".repeat(80));
 console.log("Current Configuration");
-console.log("=" .repeat(80));
+console.log("=".repeat(80));
 
 const currentConfig = getConfig();
 console.log("Config loaded:");
 console.log(JSON.stringify(currentConfig, null, 2));
 console.log();
 
-console.log("=" .repeat(80));
+console.log("=".repeat(80));
 console.log("Example: Overriding with configure()");
-console.log("=" .repeat(80));
+console.log("=".repeat(80));
 
 configure({
   logLevel: "debug",
@@ -65,9 +65,9 @@ console.log(`  logLevel: ${overriddenConfig.logLevel}`);
 console.log(`  outputFormat: ${overriddenConfig.outputFormat}`);
 console.log();
 
-console.log("=" .repeat(80));
+console.log("=".repeat(80));
 console.log("Usage Examples");
-console.log("=" .repeat(80));
+console.log("=".repeat(80));
 console.log();
 
 console.log("1. Create quzz.config.js (CommonJS):");
@@ -84,9 +84,9 @@ console.log("   };");
 console.log("   ```");
 console.log();
 
-console.log("2. Create quzz.config.mjs (ESM - preferred):");
+console.log("2. Create quzz.config.ts (preferred):");
 console.log("   ```javascript");
-console.log("   // quzz.config.mjs");
+console.log("   // quzz.config.ts");
 console.log("   export default {");
 console.log("     logLevel: 'info',");
 console.log("     outputFormat: 'compact',");
@@ -104,9 +104,9 @@ console.log("   - No need to call configure() in your app");
 console.log("   - Just drop the config file in your project root");
 console.log();
 
-console.log("=" .repeat(80));
+console.log("=".repeat(80));
 console.log("Benefits");
-console.log("=" .repeat(80));
+console.log("=".repeat(80));
 console.log("✅ Follows Next.js convention (next.config.mjs)");
 console.log("✅ Type-safe with JSDoc comments");
 console.log("✅ Automatic loading on initialization");

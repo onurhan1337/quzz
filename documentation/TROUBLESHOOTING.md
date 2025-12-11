@@ -15,6 +15,8 @@ Solutions to common issues with quzz.
 - [Terminal Hyperlinks Not Working](#terminal-hyperlinks-not-working)
 - [Config File Not Loading](#config-file-not-loading)
 - [TypeScript Errors](#typescript-errors)
+- [Route Hints Not Showing](#route-hints-not-showing)
+- [URL Processing Issues](#url-processing-issues)
 
 ## No Logs in Development
 
@@ -125,6 +127,7 @@ async function SecureComponent({ user }) {
 ### Default Sensitive Keys
 
 quzz automatically redacts these keys by default:
+
 - password
 - token
 - secret
@@ -201,7 +204,10 @@ For custom error types, implement `toJSON()`:
 
 ```typescript
 class CustomError extends Error {
-  constructor(message: string, public customField: string) {
+  constructor(
+    message: string,
+    public customField: string
+  ) {
     super(message);
   }
 
@@ -418,6 +424,7 @@ withRSCTrace(SlowComponent, {
 ### Check Terminal Support
 
 Hyperlinks (OSC 8) are supported in:
+
 - iTerm2 (macOS)
 - VS Code integrated terminal
 - GNOME Terminal (Linux)
@@ -459,12 +466,9 @@ project/
 ### Check File Name
 
 Supported names (in priority order):
+
 - `quzz.config.ts`
-- `quzz.config.mts`
-- `quzz.config.cts`
-- `quzz.config.mjs`
 - `quzz.config.js` ← Recommended
-- `quzz.config.cjs`
 
 ### Verify Config Syntax
 
@@ -592,19 +596,204 @@ configure({
 });
 ```
 
+## Route Hints Not Showing
+
+**Problem:** Route hints are not appearing in trace IDs.
+
+**Solutions:**
+
+### Check Configuration
+
+Route hints must be enabled:
+
+```typescript
+configure({
+  traceId: {
+    includeRouteHint: true, // Must be true
+  },
+});
+```
+
+### Verify Trace ID Mode
+
+Route hints require structured mode:
+
+```typescript
+configure({
+  traceId: {
+    mode: "structured", // Not "random"
+    includeRouteHint: true,
+  },
+});
+```
+
+### Check Component Props
+
+Route hints are extracted from props. Ensure your component receives route data:
+
+```tsx
+// ✅ Good - Props contain route information
+async function ProductPage({ params, searchParams }) {
+  // quzz can extract route info from params/searchParams
+}
+
+// ❌ Limited - No route information in props
+function StaticComponent({ title }) {
+  // No route data to extract
+}
+```
+
+### Provide Custom Route Hints
+
+Override automatic extraction:
+
+```tsx
+const TracedComponent = withRSCTrace(MyComponent, {
+  routeHint: "/products?category=electronics", // Custom route
+});
+```
+
+### Check Length Limits
+
+Route hints may be truncated:
+
+```typescript
+configure({
+  traceId: {
+    maxPathLength: 200,        // Increase if paths are cut off
+    maxSearchParamsLength: 100, // Increase if query params are cut off
+    maxRouteLength: 300,       // Increase total route hint length
+  },
+});
+```
+
+## URL Processing Issues
+
+**Problem:** URLs are not being parsed correctly or causing errors.
+
+**Solutions:**
+
+### Check URL Format
+
+Ensure URLs follow expected format:
+
+```typescript
+import { safeURLParsing } from "quzz";
+
+// ✅ Valid URLs
+const valid = [
+  "https://example.com/path",
+  "http://localhost:3000/api",
+  "/relative/path",
+  "/path?query=value",
+];
+
+valid.forEach(url => {
+  console.log(safeURLParsing(url));
+});
+```
+
+### Handle Malformed URLs
+
+quzz safely handles malformed URLs:
+
+```typescript
+// These won't crash - they're handled gracefully
+const malformed = [
+  "not-a-url",
+  "javascript:alert('xss')",
+  "https://[invalid-host]/path",
+  "",
+  null,
+  undefined,
+];
+
+malformed.forEach(url => {
+  const result = safeURLParsing(url);
+  console.log("Safe result:", result);
+});
+```
+
+### Adjust Length Limits
+
+Very long URLs are truncated for performance:
+
+```typescript
+configure({
+  traceId: {
+    maxPathLength: 300, // Increase for longer paths
+  },
+});
+```
+
+### Check Security Filtering
+
+Dangerous protocols are filtered:
+
+```typescript
+// These protocols are blocked for security:
+const blocked = [
+  "javascript:alert('xss')",
+  "data:text/html,<script>",
+  "vbscript:msgbox(1)",
+];
+
+// They're treated as plain text paths, not URLs
+blocked.forEach(url => {
+  const result = safeURLParsing(url);
+  console.log(result.domain); // undefined (not parsed as URL)
+  console.log(result.path);   // Original string (as plain text)
+});
+```
+
+### Path Truncation Issues
+
+If paths are truncated unexpectedly:
+
+```typescript
+import { truncatePath } from "quzz";
+
+// Test truncation behavior
+const longPath = "/very/long/path/to/resource/that/exceeds/limit";
+console.log("Original:", longPath.length);
+console.log("Truncated:", truncatePath(longPath, 30));
+
+// Adjust limits
+configure({
+  traceId: {
+    maxPathLength: 150, // Increase limit
+  },
+});
+```
+
+### Debug URL Processing
+
+Enable debug logging to see URL processing:
+
+```typescript
+configure({
+  logLevel: "debug",
+  debugContext: true,
+});
+
+// You'll see logs about URL parsing and truncation
+```
+
 ## Still Having Issues?
 
 If none of these solutions work:
 
 1. **Check the logs** - Look for quzz warnings or errors
 2. **Enable debug mode** - `configure({ logLevel: "debug", debugContext: true })`
-3. **Check GitHub Issues** - [github.com/onurhan1337/quzz/issues](https://github.com/onurhan1337/quzz/issues)
-4. **Report a bug** - Create a new issue with:
+3. **Test URL processing** - Use `safeURLParsing` and `truncatePath` directly
+4. **Check GitHub Issues** - [github.com/onurhan1337/quzz/issues](https://github.com/onurhan1337/quzz/issues)
+5. **Report a bug** - Create a new issue with:
    - quzz version
    - Next.js version
    - Node.js version
    - Minimal reproduction example
    - Error messages and logs
+   - Sample URLs that cause issues
 
 ## Common Error Messages
 
@@ -642,4 +831,33 @@ configure({
     memoryThreshold: 100 * 1024 * 1024, // 100MB
   },
 });
+```
+
+### "Route hint truncated" or "URL processing failed"
+
+**Solution:** Adjust URL processing limits:
+
+```typescript
+configure({
+  traceId: {
+    maxPathLength: 200,        // Increase path limit
+    maxSearchParamsLength: 100, // Increase query limit
+    maxRouteLength: 300,       // Increase total route limit
+  },
+});
+```
+
+### "Invalid URL format" 
+
+**Solution:** Use safeURLParsing for validation:
+
+```typescript
+import { safeURLParsing } from "quzz";
+
+const result = safeURLParsing(suspiciousUrl);
+if (result.domain) {
+  console.log("Valid URL with domain:", result.domain);
+} else {
+  console.log("Treated as path:", result.path);
+}
 ```

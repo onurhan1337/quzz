@@ -3,6 +3,8 @@
  */
 
 import { ContextManager } from "./context-manager";
+import { ConfigManager } from "../config";
+import { serializeError as serializeErrorWithStack } from "../utils";
 import type { TraceMetadata, SerializedError } from "../types";
 
 /**
@@ -190,30 +192,33 @@ export class StorageAPI {
   }
 
   private serializeError(error: unknown): SerializedError {
+    const mapStackTraces =
+      ConfigManager.getInstance().getConfig().mapStackTraces ?? false;
+
     if (error instanceof Error) {
-      return {
-        message: error.message,
-        name: error.name,
-        stack: error.stack,
-        code: (error as Error & { code?: string | number }).code,
-      };
+      return serializeErrorWithStack(error, 3, 0, { mapStackTraces });
     }
 
     if (error && typeof error === "object") {
       const obj = error as Record<string, unknown>;
-      return {
-        message: obj.message ? String(obj.message) : JSON.stringify(error),
-        name: obj.name ? String(obj.name) : "UnknownError",
-        stack: obj.stack ? String(obj.stack) : undefined,
-        code:
-          obj.code !== undefined ? (obj.code as string | number) : undefined,
-      };
+      const fallback = new Error(obj.message ? String(obj.message) : "Error");
+      if (obj.stack) {
+        fallback.stack = String(obj.stack);
+      }
+      if (obj.name) {
+        fallback.name = String(obj.name);
+      }
+      if (obj.code !== undefined) {
+        (fallback as Error & { code?: string | number }).code = obj.code as
+          | string
+          | number;
+      }
+      return serializeErrorWithStack(fallback, 3, 0, { mapStackTraces });
     }
 
-    return {
-      message: String(error),
-      name: "Error",
-    };
+    return serializeErrorWithStack(new Error(String(error)), 3, 0, {
+      mapStackTraces,
+    });
   }
 }
 

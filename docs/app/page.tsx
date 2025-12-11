@@ -106,8 +106,8 @@ export const DetailedComponent = withRSCTrace(
   }
 )
 
-// Or use file-based config (NEW in v0.4.0!)
-// quzz.config.mjs
+// Or use file-based config
+// quzz.config.ts
 export default {
   logLevel: 'info',
   outputFormat: 'compact', // Try the new compact format!
@@ -115,7 +115,7 @@ export default {
   enableHyperlinks: true,
   componentFilter: /^(Blog|Product)/
 }
-// Config auto-loads - no code changes needed! ✨`}
+// Config auto-loads async - no code changes needed! ✨`}
       />
 
       <Separator />
@@ -180,6 +180,13 @@ export default {
               components. Plus all v0.4.0 features: file-based config, compact
               output, terminal hyperlinks, and more.
             </p>
+            <ul className="mt-6 space-y-2 text-sm text-muted-foreground text-left sm:text-center">
+              <li>• Dev-only source-mapped error stacks (no extra deps)</li>
+              <li>
+                • Transport timeouts & backpressure guards to avoid log stalls
+              </li>
+              <li>• Bounded source-map cache for fast remapping</li>
+            </ul>
           </div>
 
           <StorageDemo />
@@ -221,6 +228,21 @@ export default {
               </div>
             </div>
 
+            <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
+              <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <div className="relative">
+                <div className="mb-4 w-12 h-12 rounded-none bg-red-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <AlertCircle className="w-6 h-6 text-red-500" />
+                </div>
+                <h3 className="text-xl mb-2">Mapped stacks & resilient logs</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Dev-only source-mapped error stacks (no extra deps) plus
+                  transport timeouts and backpressure guards so slow custom
+                  transports never block your renders.
+                </p>
+              </div>
+            </div>
+
             {/* v0.4.0 Features */}
             <div className="group relative rounded-none border border-border bg-card p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/50">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
@@ -233,7 +255,7 @@ export default {
                   <span className="inline-block px-1.5 py-0.5 text-xs font-mono bg-blue-500/10 text-blue-500 rounded mb-1">
                     NEW
                   </span>{" "}
-                  Next.js-style quzz.config.mjs. Auto-loads, type-safe, zero
+                  Next.js-style quzz.config.ts/.js. Auto-loads, type-safe, zero
                   code changes needed.
                 </p>
               </div>

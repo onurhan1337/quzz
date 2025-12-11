@@ -1,7 +1,8 @@
 import type { ComponentType } from "react";
 
 export type LogLevel = "silent" | "error" | "warn" | "info" | "debug" | "trace";
-export type OutputFormat = "pretty" | "json" | "compact" | "custom";
+export type OutputFormat = "pretty" | "json" | "compact" | "grouped" | "custom";
+export type Milliseconds = number;
 
 /**
  * Valid log levels for type-safe validation
@@ -22,6 +23,7 @@ export const VALID_OUTPUT_FORMATS: readonly OutputFormat[] = [
   "pretty",
   "json",
   "compact",
+  "grouped",
 ] as const;
 
 /**
@@ -36,6 +38,18 @@ export type LogTransport = (
   entry: LogEntry,
   formatted: string
 ) => void | Promise<void>;
+export interface FileTransportOptions {
+  path: string;
+  flushIntervalMs?: number;
+}
+export interface HttpTransportOptions {
+  url: string;
+  headers?: Record<string, string>;
+  batchSize?: number;
+  flushIntervalMs?: number;
+  method?: "POST" | "PUT";
+  maxRetries?: number;
+}
 
 /**
  * Plugin hook for intercepting trace lifecycle
@@ -50,6 +64,8 @@ export interface TracePlugin {
   ) => void | Promise<void>;
   onPropsCapture?: (props: Record<string, unknown>) => Record<string, unknown>;
 }
+export type QuzzPresetName = "debug" | "perf" | "minimal";
+export type QuzzPreset = QuzzConfig;
 
 /**
  * Performance metrics configuration
@@ -169,6 +185,15 @@ export interface EnvConfig {
   forceEnable?: boolean;
 }
 
+export interface TraceIdConfig {
+  mode?: "structured" | "random";
+  includeRouteHint?: boolean;
+  maxRouteLength?: number;
+  maxSearchParamsLength?: number;
+  maxIdLength?: number;
+  maxPathLength?: number;
+}
+
 /**
  * Global configuration options for quzz
  */
@@ -194,6 +219,16 @@ export interface QuzzConfig {
    * Custom log transports
    */
   transports?: LogTransport[];
+
+  /**
+   * Timeout per custom transport invocation in milliseconds
+   */
+  transportTimeoutMs?: Milliseconds;
+
+  /**
+   * Maximum concurrent pending transport tasks before dropping
+   */
+  transportMaxPending?: number;
 
   /**
    * Performance monitoring configuration
@@ -246,6 +281,12 @@ export interface QuzzConfig {
    * @default false
    */
   includeSourceLocation?: boolean;
+
+  /**
+   * Map error stacks using built-in Node source maps when available
+   * @default false
+   */
+  mapStackTraces?: boolean;
 
   /**
    * Custom plugins for extending functionality
@@ -310,6 +351,8 @@ export interface QuzzConfig {
    * @default true
    */
   enableHyperlinks?: boolean;
+
+  traceId?: TraceIdConfig;
 }
 
 /**
@@ -334,6 +377,8 @@ export interface RSCTraceOptions extends Partial<QuzzConfig> {
     timing?: boolean;
     errors?: boolean;
   };
+
+  routeHint?: string;
 }
 
 export interface SerializedError {
@@ -358,6 +403,9 @@ export interface TraceMetadata {
   error?: SerializedError;
   parentTrace?: string;
   traceId: string;
+  routeHint?: string;
+  rootTraceId?: string;
+  sequence?: number;
   memory?: {
     heapUsed: number;
     heapTotal: number;
@@ -372,6 +420,11 @@ export interface LogEntry {
   metadata?: TraceMetadata;
   error?: SerializedError;
   tags?: string[];
+}
+
+export interface QueueEntry {
+  entry: LogEntry;
+  retryCount: number;
 }
 
 export interface PerformanceMetrics {

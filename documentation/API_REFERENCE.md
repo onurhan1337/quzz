@@ -32,6 +32,7 @@ interface TraceOptions {
   tags?: string[];
   logLevel?: "debug" | "info" | "warn" | "error" | "silent";
   logProps?: boolean;
+  routeHint?: string;
   props?: {
     awaitProps?: boolean;
     awaitTimeout?: number;
@@ -80,6 +81,14 @@ interface QuzzConfig {
   logLevel?: "debug" | "info" | "warn" | "error" | "silent";
   outputFormat?: "pretty" | "compact" | "json";
   forceEnable?: boolean;
+  traceId?: {
+    mode?: "structured" | "random";
+    includeRouteHint?: boolean;
+    maxRouteLength?: number;
+    maxSearchParamsLength?: number;
+    maxIdLength?: number;
+    maxPathLength?: number;
+  };
   performance?: {
     enabled?: boolean;
     warnThreshold?: number;
@@ -300,6 +309,8 @@ console.log(`Using config: ${path}`);
 Manually load configuration from file (async).
 
 **Returns:** `Promise<QuzzConfig | null>`
+
+> Note: The synchronous `loadConfigFromFile()` is deprecated and returns `null`. Use the async API; file config is applied asynchronously (defaults/env take effect immediately, file config merges when ready).
 
 **Example:**
 
@@ -632,6 +643,83 @@ interface TraceStatistics {
 }
 ```
 
+## URL Parsing Utilities
+
+### `safeURLParsing(urlStr)`
+
+Safely parses URLs and paths with security filtering.
+
+**Parameters:**
+
+- `urlStr` - URL string or path to parse
+
+**Returns:** `URLParseResult`
+
+**Example:**
+
+```typescript
+import { safeURLParsing } from "quzz";
+
+const result = safeURLParsing("https://example.com/path?query=123");
+console.log(result);
+// { domain: "https://example.com", path: "/path?query=123" }
+
+const pathResult = safeURLParsing("/users/profile");
+console.log(pathResult);
+// { domain: undefined, path: "/users/profile" }
+```
+
+**Type:**
+
+```typescript
+interface URLParseResult {
+  domain?: string;
+  path?: string;
+}
+```
+
+**Security Features:**
+
+- Filters dangerous protocols (javascript:, data:, etc.)
+- Handles malformed URLs gracefully
+- Applies length limits to prevent DoS
+- Safe handling of special characters
+
+### `truncatePath(path, maxLength)`
+
+Intelligently truncates long paths while preserving important segments.
+
+**Parameters:**
+
+- `path` - Path string to truncate
+- `maxLength` - Maximum length allowed
+
+**Returns:** `string`
+
+**Example:**
+
+```typescript
+import { truncatePath } from "quzz";
+
+const longPath = "/products/electronics/smartphones/iphone-15-pro-max/reviews";
+const result = truncatePath(longPath, 30);
+console.log(result);
+// "/products/.../reviews"
+
+const urlPath = "https://example.com/very/long/path/here";
+const urlResult = truncatePath(urlPath, 40);
+console.log(urlResult);
+// "https://example.com/.../here"
+```
+
+**Truncation Logic:**
+
+- Preserves domain for URLs
+- Shows first and last path segments when possible
+- Uses "..." to indicate truncation
+- Handles query parameters and fragments
+- Maintains path structure intelligently
+
 ## Components
 
 ### `<RSCBoundary>`
@@ -690,6 +778,9 @@ interface TraceMetadata {
   tags?: string[];
   parentTraceId?: string;
   timestamp: number;
+  routeHint?: string;
+  rootTraceId?: string;
+  sequence?: number;
 }
 ```
 

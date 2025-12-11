@@ -8,16 +8,10 @@ quzz supports multiple configuration methods with a clear priority system.
 
 Create a configuration file in your project root. quzz automatically loads it on initialization.
 
-#### Supported File Formats
+#### Supported File Formats (priority order)
 
-In priority order:
-
-- `quzz.config.ts` - TypeScript (requires async loading)
-- `quzz.config.mts` - TypeScript ESM (requires async loading)
-- `quzz.config.cts` - TypeScript CommonJS (requires async loading)
-- `quzz.config.mjs` - JavaScript ESM (requires async loading)
-- `quzz.config.js` - JavaScript CommonJS (**recommended** for immediate loading)
-- `quzz.config.cjs` - JavaScript CommonJS explicit
+- `quzz.config.ts` (TypeScript, preferred)
+- `quzz.config.js` (JavaScript, ESM/Node-resolved)
 
 #### JavaScript Configuration (Recommended)
 
@@ -53,21 +47,20 @@ module.exports = {
 
 ```typescript
 // quzz.config.ts
-import type { QuzzConfig } from 'quzz';
+import { defineConfig } from "quzz";
 
-const config: QuzzConfig = {
-  logLevel: "info",
-  outputFormat: "compact",
+export default defineConfig({
+  logLevel: "debug",
+  outputFormat: "grouped",
   performance: {
     enabled: true,
     warnThreshold: 500,
   },
-};
-
-export default config;
+  visualizer: { enabled: true },
+});
 ```
 
-**Note:** TypeScript and ESM config files (`.ts`, `.mts`, `.mjs`) require asynchronous module loading. For immediate loading at startup, use `.js` or `.cjs` with CommonJS syntax.
+**Note:** TypeScript config loading requires `esbuild` to be available in your project.
 
 ### 2. Programmatic Configuration
 
@@ -89,6 +82,20 @@ if (process.env.NODE_ENV === "development") {
 }
 ```
 
+Or pick a preset:
+
+```typescript
+import { configurePreset } from "quzz";
+
+configurePreset("debug");
+```
+
+### Presets
+
+- `debug`: verbose logs, props, snapshots, visualizer on, perf warnings at 500ms.
+- `perf`: compact logs, performance and memory tracking, throttled output.
+- `minimal`: warnings only, minimal overhead.
+
 ### 3. Environment Variables
 
 Override any setting via environment variables:
@@ -107,14 +114,20 @@ QUZZ_FORCE_ENABLE=true  # Force enable in production (not recommended)
 QUZZ_DISABLE_HYPERLINKS=true
 ```
 
+> Production behavior: when `NODE_ENV=production`, quzz is off by default. Keep `QUZZ_ENABLED=false` or `QUZZ_DISABLE=true` to stay disabled. Only force it on (not recommended) with `QUZZ_FORCE_ENABLE=true`.
+
 ### Configuration Priority
 
 Settings are merged in this order (highest priority last):
 
 1. **Defaults** (built-in)
-2. **Config file** (`quzz.config.js`)
+2. **Config file** (`quzz.config.ts` or `quzz.config.js`, loaded async)
 3. **Environment variables** (`QUZZ_*`)
 4. **`configure()`** (programmatic)
+
+> Note: The config file loads asynchronously; defaults+env apply first, then the file merges when ready. The sync loader is deprecated.
+> If you call `configure()` after providing a config file, the programmatic call wins. (File-based config does not override values set via `configure()`.)
+> `resetConfig()` restores defaults (+env, optionally file config). `reloadConfig()` re-reads the config file and resets using it.
 
 ## Configuration Options
 
@@ -123,7 +136,7 @@ Settings are merged in this order (highest priority last):
 #### `logLevel`
 
 - **Type:** `"debug" | "info" | "warn" | "error" | "silent"`
-- **Default:** `"info"`
+- **Default:** `"error"`
 - **Description:** Minimum log level to display
 
 ```javascript
@@ -134,13 +147,13 @@ module.exports = {
 
 #### `outputFormat`
 
-- **Type:** `"pretty" | "compact" | "json"`
+- **Type:** `"pretty" | "compact" | "json" | "grouped" | "custom"`
 - **Default:** `"pretty"`
 - **Description:** Output format for logs
 
 ```javascript
 module.exports = {
-  outputFormat: "compact", // Single-line logs
+  outputFormat: "grouped",
 };
 ```
 
@@ -149,6 +162,76 @@ module.exports = {
 - `pretty`: Multi-line, detailed logs
 - `compact`: Single-line logs (e.g., `BlogPost: 4.79ms (620MB) ✓`)
 - `json`: JSON-formatted logs for parsing
+- `grouped`: Grouped multi-line logs without ANSI
+
+#### `traceId`
+
+- **Type:** `{ mode?: "structured" | "random"; includeRouteHint?: boolean; maxRouteLength?: number; maxSearchParamsLength?: number; maxIdLength?: number; maxPathLength?: number }`
+- **Default:** `{ mode: "structured", includeRouteHint: true, maxRouteLength: 120, maxSearchParamsLength: 80, maxIdLength: 180, maxPathLength: 120 }`
+- **Description:** Controls trace ID generation and route hint formatting
+
+```javascript
+module.exports = {
+  traceId: {
+    mode: "structured",           // "structured" | "random"
+    includeRouteHint: true,       // Include route info in trace IDs
+    maxRouteLength: 120,          // Max total route hint length
+    maxSearchParamsLength: 80,    // Max query parameters length
+    maxIdLength: 180,             // Max total trace ID length
+    maxPathLength: 120,           // Max URL path length before truncation
+  },
+};
+```
+
+Per-component route hints can be supplied via `withRSCTrace(Component, { routeHint: "/products?tag=summer" })`. Set `includeRouteHint: false` to disable.
+
+#### Transports
+
+Send logs to multiple destinations:
+
+```typescript
+import {
+  configure,
+  createConsoleTransport,
+  createFileTransport,
+  createHttpTransport,
+} from "quzz";
+
+configure({
+  outputFormat: "json",
+  transports: [
+    createConsoleTransport(),
+    createFileTransport({ path: "./quzz.log" }),
+    createHttpTransport({ url: "https://logs.example.com/ingest" }),
+  ],
+});
+```
+
+#### `mapStackTraces`
+
+- **Type:** `boolean`
+- **Default:** `false`
+- **Description:** Attempts to map error stacks using Node’s built-in source map support (`--enable-source-maps` or inline maps). Maps the first 80 stack lines for performance; remaining lines are left as-is. Falls back silently if mapping is unavailable. Intended for development; keep off in production.
+
+#### Transport safeguards
+
+- `transportTimeoutMs`
+  - **Type:** `number`
+  - **Default:** `500`
+  - **Description:** Per-transport timeout in milliseconds. If a custom transport exceeds this, it is abandoned for that log entry without blocking rendering.
+- `transportMaxPending`
+  - **Type:** `number`
+  - **Default:** `100`
+  - **Description:** Maximum concurrent pending custom transport tasks. Additional logs beyond this limit are dropped for custom transports to avoid backpressure.
+
+```javascript
+module.exports = {
+  mapStackTraces: true,
+  transportTimeoutMs: 300,
+  transportMaxPending: 50,
+  transports: [createHttpTransport({ url: "https://logs.example.com/ingest" })],
+};
+```
 
 #### `forceEnable`
 
@@ -169,13 +252,13 @@ module.exports = {
 #### `performance.enabled`
 
 - **Type:** `boolean`
-- **Default:** `true`
+- **Default:** `false`
 - **Description:** Enable performance tracking
 
 #### `performance.warnThreshold`
 
 - **Type:** `number` (milliseconds)
-- **Default:** `1000`
+- **Default:** `750`
 - **Description:** Warn when component render exceeds threshold
 
 ```javascript
@@ -190,13 +273,13 @@ module.exports = {
 #### `performance.trackMemory`
 
 - **Type:** `boolean`
-- **Default:** `true`
+- **Default:** `false`
 - **Description:** Track memory usage (Node.js only)
 
 #### `performance.memoryThreshold`
 
 - **Type:** `number` (bytes)
-- **Default:** `100 * 1024 * 1024` (100MB)
+- **Default:** `30 * 1024 * 1024` (30MB)
 - **Description:** Threshold for memory warnings
 
 #### `performance.enableHeapSnapshots`
@@ -439,6 +522,31 @@ All component-level options:
   // Hierarchy tracking
   autoLinkParent: true,
 }
+```
+
+### URL Processing and Security
+
+The trace ID system uses secure URL parsing to handle route hints:
+
+- **Safe URL Parsing**: Filters dangerous protocols (javascript:, data:, etc.)
+- **Intelligent Truncation**: Preserves important path segments when truncating long URLs
+- **Length Limits**: Prevents trace IDs from becoming unwieldy in logs
+- **Query Parameter Handling**: Safely processes and truncates search parameters
+
+**Security Features:**
+
+```javascript
+// These dangerous URLs are safely handled:
+// javascript:alert('xss') → treated as plain text path
+// data:text/html,<script> → treated as plain text path
+// Very long URLs → intelligently truncated with ...
+
+module.exports = {
+  traceId: {
+    maxPathLength: 100,        // Long paths truncated intelligently
+    maxSearchParamsLength: 50, // Query params truncated at limit
+  },
+};
 ```
 
 ## Utility Functions

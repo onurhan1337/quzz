@@ -23,17 +23,17 @@ This guide covers all the powerful features available in quzz, including the lat
 
 ### File-Based Configuration
 
-Following Next.js conventions, quzz now supports automatic configuration loading from a file in your project root.
+quzz automatically loads configuration from your project root (async).
 
 #### Supported Files (in priority order)
 
-1. `quzz.config.mjs` (ESM - preferred)
-2. `quzz.config.js` (CommonJS)
-3. `quzz.config.cjs` (CommonJS explicit)
+1. `quzz.config.ts` (ESM, preferred)
+2. `quzz.config.js` (ESM/Node-resolved JS)
 
 #### Example Configuration
 
-**quzz.config.mjs:**
+**quzz.config.ts:**
+
 ```typescript
 /** @type {import('quzz').QuzzConfig} */
 export default {
@@ -72,7 +72,7 @@ export default {
 Settings are merged in this order (highest priority last):
 
 1. **Defaults** (built-in)
-2. **quzz.config.mjs** (file-based)
+2. **`quzz.config.ts`/`.js`** (file-based, loaded async)
 3. **Environment variables** (`QUZZ_*`)
 4. **configure()** (programmatic)
 
@@ -81,22 +81,28 @@ Settings are merged in this order (highest priority last):
 - ✅ No code changes needed - just drop the config file in your root
 - ✅ Type-safe with JSDoc `@type` comments
 - ✅ Automatic loading on initialization
-- ✅ Follows Next.js convention (`next.config.mjs`)
+- ✅ Follows Next.js ESM-first convention (`quzz.config.ts` / `.js`)
 - ✅ Can still use `configure()` for runtime overrides
-- ✅ Supports both ESM and CommonJS
+- ✅ Supports ESM TypeScript or JavaScript
 
 #### API Functions
 
 ```typescript
-import { hasConfigFile, getConfigFilePath, loadConfigFromFileAsync } from 'quzz';
+import {
+  hasConfigFile,
+  getConfigFilePath,
+  loadConfigFromFileAsync,
+} from "quzz";
 
 // Check if config file exists
 if (hasConfigFile()) {
-  console.log('Config found at:', getConfigFilePath());
+  console.log("Config found at:", getConfigFilePath());
 }
 
 // Manually load config (advanced use case)
 const config = await loadConfigFromFileAsync();
+
+// Note: the sync loader is deprecated and returns null; use the async API.
 ```
 
 ### Compact Output Format
@@ -121,7 +127,7 @@ ErrorComponent: 532.11ms ✗ Database connection failed
 #### Configuration
 
 ```typescript
-// quzz.config.mjs
+// quzz.config.ts
 export default {
   outputFormat: "compact", // "pretty" | "compact" | "json"
 };
@@ -129,6 +135,10 @@ export default {
 // Or via environment variable
 // QUZZ_OUTPUT_FORMAT=compact
 ```
+
+### Production defaults
+
+Quzz is off by default in production (`NODE_ENV=production`). Keep it disabled with `QUZZ_ENABLED=false` or `QUZZ_DISABLE=true`. Only force it on if you really need it (not recommended): `QUZZ_FORCE_ENABLE=true`.
 
 ### Terminal Hyperlinks
 
@@ -152,6 +162,7 @@ Trace: trace_abc123 (clickable - cmd+click to navigate)
 #### How It Works
 
 Quzz uses OSC 8 escape sequences to create hyperlinks:
+
 - URL scheme: `quzz://trace/{traceId}`
 - Automatic detection of terminal support
 - Graceful fallback to plain text for unsupported terminals
@@ -159,7 +170,7 @@ Quzz uses OSC 8 escape sequences to create hyperlinks:
 #### Configuration
 
 ```typescript
-// quzz.config.mjs
+// quzz.config.ts
 export default {
   enableHyperlinks: true, // Default: true
 };
@@ -179,7 +190,7 @@ When memory usage exceeds a threshold, quzz automatically captures a heap snapsh
 #### Configuration
 
 ```typescript
-// quzz.config.mjs
+// quzz.config.ts
 export default {
   performance: {
     enabled: true,
@@ -232,30 +243,36 @@ Full environment variable support for CI/CD and production debugging.
 #### Supported Variables
 
 **Enable/Disable:**
+
 - `QUZZ_ENABLED=true|false|1|0` - Enable/disable tracing
 - `QUZZ_DISABLE=true` - Complete disable (highest priority)
 - `QUZZ_FORCE_ENABLE=true|false|1|0` - Force enable in production
 
 **Configuration:**
+
 - `QUZZ_LOG_LEVEL=silent|error|warn|info|debug|trace` - Set log level
 - `QUZZ_OUTPUT_FORMAT=pretty|json|compact` - Set output format
 
 **Features:**
+
 - `QUZZ_DISABLE_HYPERLINKS=true` - Disable terminal hyperlinks
 
 #### Examples
 
 **Development:**
+
 ```bash
 QUZZ_LOG_LEVEL=debug QUZZ_OUTPUT_FORMAT=compact npm run dev
 ```
 
 **CI/CD:**
+
 ```bash
 QUZZ_ENABLED=true QUZZ_OUTPUT_FORMAT=json npm test
 ```
 
 **Production Debugging (use with caution):**
+
 ```bash
 QUZZ_FORCE_ENABLE=true QUZZ_LOG_LEVEL=error npm start
 ```
@@ -282,7 +299,7 @@ QUZZ_FORCE_ENABLE=true QUZZ_LOG_LEVEL=error npm start
 The foundation of quzz is component tracing, which provides visibility into React Server Component rendering:
 
 ```tsx
-import { withRSCTrace } from 'quzz';
+import { withRSCTrace } from "quzz";
 
 const MyComponent = withRSCTrace(
   async function MyComponent({ data }) {
@@ -290,8 +307,8 @@ const MyComponent = withRSCTrace(
     return <div>{data}</div>;
   },
   {
-    componentName: 'MyComponent',
-    tags: ['critical', 'data-fetch'],
+    componentName: "MyComponent",
+    tags: ["critical", "data-fetch"],
   }
 );
 ```
@@ -301,11 +318,11 @@ const MyComponent = withRSCTrace(
 For fine-grained control without modifying components:
 
 ```tsx
-import { RSCBoundary } from 'quzz';
+import { RSCBoundary } from "quzz";
 
-<RSCBoundary label="critical-section" tags={['important']}>
+<RSCBoundary label="critical-section" tags={["important"]}>
   <YourComponents />
-</RSCBoundary>
+</RSCBoundary>;
 ```
 
 ## Modular Storage Architecture
@@ -317,6 +334,7 @@ The modular storage system provides isolated context tracking across async bound
 ### Built-in Storage Modules
 
 #### TraceStorage
+
 Manages component hierarchy and trace metadata:
 
 ```typescript
@@ -326,6 +344,7 @@ const hierarchy = contextManager.getTraceHierarchy();
 ```
 
 #### MemoryMetricsStorage
+
 Monitors memory usage and detects leaks:
 
 ```typescript
@@ -339,7 +358,7 @@ const trend = contextManager.getMemoryTrend(10);
 Create your own storage modules for application-specific needs:
 
 ```typescript
-import { BaseAsyncStorage } from 'quzz/storage';
+import { BaseAsyncStorage } from "quzz/storage";
 
 interface AppState {
   feature: string;
@@ -348,11 +367,11 @@ interface AppState {
 
 class AppStateStorage extends BaseAsyncStorage<AppState> {
   protected createDefaultStore(): AppState {
-    return { feature: '', data: null };
+    return { feature: "", data: null };
   }
 
   protected validateStore(store: unknown): store is AppState {
-    return typeof store === 'object' && 'feature' in store;
+    return typeof store === "object" && "feature" in store;
   }
 
   // Custom methods
@@ -365,12 +384,16 @@ class AppStateStorage extends BaseAsyncStorage<AppState> {
 }
 
 // Register and use
-const appStorage = new AppStateStorage({ name: 'app-state' });
-contextManager.registerStorage('app', appStorage);
+const appStorage = new AppStateStorage({ name: "app-state" });
+contextManager.registerStorage("app", appStorage);
 
-contextManager.runWithStorage('app', { feature: 'dashboard', data: {} }, async () => {
-  // Your async operations have access to app state
-});
+contextManager.runWithStorage(
+  "app",
+  { feature: "dashboard", data: {} },
+  async () => {
+    // Your async operations have access to app state
+  }
+);
 ```
 
 ### Storage Statistics
@@ -403,6 +426,7 @@ configure({
 ### Automatic Capture
 
 In verbose mode, snapshots are automatically captured at:
+
 - Component entry (`component-enter:ComponentName`)
 - Component exit (`component-exit:ComponentName`)
 - Component error (`component-error:ComponentName`)
@@ -415,11 +439,11 @@ In verbose mode, snapshots are automatically captured at:
 Capture snapshots programmatically:
 
 ```typescript
-import { getContextSnapshots, getLatestSnapshot } from 'quzz';
+import { getContextSnapshots, getLatestSnapshot } from "quzz";
 
 // During component execution
 const snapshot = contextManager.captureSnapshot({
-  label: 'critical-point',
+  label: "critical-point",
   maxSnapshots: 100, // Limit storage
 });
 
@@ -435,10 +459,10 @@ clearSnapshots();
 
 ```typescript
 interface ContextSnapshot<T> {
-  timestamp: number;        // When captured
-  store: T | undefined;     // Context state
-  stackDepth: number;       // Nesting level
-  label?: string;           // Custom identifier
+  timestamp: number; // When captured
+  store: T | undefined; // Context state
+  stackDepth: number; // Nesting level
+  label?: string; // Custom identifier
 }
 ```
 
@@ -451,7 +475,7 @@ if (isSnapshotSupported()) {
   const snapshots = getContextSnapshots();
 
   // Analyze context flow
-  snapshots.forEach(snap => {
+  snapshots.forEach((snap) => {
     console.log(`${snap.label} at depth ${snap.stackDepth}:`, {
       time: new Date(snap.timestamp).toISOString(),
       context: snap.store,
@@ -490,7 +514,7 @@ const contextManager = ContextManager.getInstance({
 // Get current memory stats
 const memoryStats = contextManager.getMemoryStats();
 if (memoryStats?.leakDetected) {
-  console.error('Memory leak detected!', {
+  console.error("Memory leak detected!", {
     growth: memoryStats.growth,
     baseline: memoryStats.baseline,
     current: memoryStats.current,
@@ -500,8 +524,9 @@ if (memoryStats?.leakDetected) {
 // Track memory trend
 const trend = contextManager.getMemoryTrend(10); // Last 10 snapshots
 if (trend) {
-  const avgGrowth = trend.samples.reduce((a, b) => a + b.heapUsed, 0) / trend.samples.length;
-  console.log('Average memory usage:', avgGrowth);
+  const avgGrowth =
+    trend.samples.reduce((a, b) => a + b.heapUsed, 0) / trend.samples.length;
+  console.log("Average memory usage:", avgGrowth);
 }
 ```
 
@@ -554,15 +579,19 @@ configure({
     enabled: true,
     warnThreshold: 500, // Warn if > 500ms
   },
-  plugins: [{
-    name: 'performance-budget',
-    onTraceEnd: async (metadata) => {
-      if (metadata.duration > 1000) {
-        // Alert or log to monitoring service
-        await notifySlack(`Component ${metadata.componentName} exceeded budget`);
-      }
+  plugins: [
+    {
+      name: "performance-budget",
+      onTraceEnd: async (metadata) => {
+        if (metadata.duration > 1000) {
+          // Alert or log to monitoring service
+          await notifySlack(
+            `Component ${metadata.componentName} exceeded budget`
+          );
+        }
+      },
     },
-  }],
+  ],
 });
 ```
 
@@ -586,9 +615,9 @@ Enable storage based on environment:
 
 ```typescript
 const contextManager = ContextManager.getInstance({
-  enableTracing: process.env.ENABLE_TRACING === 'true',
-  enableMemoryMetrics: process.env.NODE_ENV === 'development',
-  enableSnapshots: process.env.DEBUG === 'true',
+  enableTracing: process.env.ENABLE_TRACING === "true",
+  enableMemoryMetrics: process.env.NODE_ENV === "development",
+  enableSnapshots: process.env.DEBUG === "true",
 });
 ```
 
@@ -598,11 +627,11 @@ Manage storage lifecycle:
 
 ```typescript
 // Enable/disable at runtime
-contextManager.enableStorage('trace');
-contextManager.disableStorage('memory');
+contextManager.enableStorage("trace");
+contextManager.disableStorage("memory");
 
 // Unregister completely
-contextManager.unregisterStorage('custom');
+contextManager.unregisterStorage("custom");
 
 // Clear all data
 contextManager.clearAll();
@@ -617,9 +646,9 @@ contextManager.dispose();
 
 ```typescript
 // Development configuration
-if (process.env.NODE_ENV === 'development') {
+if (process.env.NODE_ENV === "development") {
   configure({
-    logLevel: 'debug',
+    logLevel: "debug",
     verboseMode: true,
     enableSnapshots: true,
     performance: { trackMemory: true },
@@ -627,10 +656,10 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // Production (if needed)
-if (process.env.ENABLE_PRODUCTION_TRACING === 'true') {
+if (process.env.ENABLE_PRODUCTION_TRACING === "true") {
   configure({
     forceEnable: true,
-    logLevel: 'error',
+    logLevel: "error",
     performance: { enabled: true },
     // Don't enable snapshots or memory tracking in production
   });
@@ -666,8 +695,9 @@ setInterval(() => {
 
   // Check memory health
   const stats = contextManager.getMemoryStats();
-  if (stats?.growth > 100_000_000) { // 100MB growth
-    console.warn('High memory growth detected');
+  if (stats?.growth > 100_000_000) {
+    // 100MB growth
+    console.warn("High memory growth detected");
     // Take action
   }
 }, 60000); // Every minute
@@ -678,7 +708,7 @@ setInterval(() => {
 ```typescript
 // Wrap storage operations
 try {
-  contextManager.runWithStorage('critical', context, async () => {
+  contextManager.runWithStorage("critical", context, async () => {
     // Your code
   });
 } catch (error) {
@@ -686,7 +716,7 @@ try {
   const errorSnapshot = contextManager.captureSnapshot({
     label: `error-${error.message}`,
   });
-  console.error('Error with context:', errorSnapshot);
+  console.error("Error with context:", errorSnapshot);
 }
 ```
 
@@ -700,11 +730,11 @@ The v0.4.0 release is fully backward compatible. All existing code continues to 
 
 **Option 1: File-Based Config (Recommended)**
 
-Create `quzz.config.mjs` in your project root and move your configuration there:
+Create `quzz.config.ts` in your project root and move your configuration there:
 
 ```typescript
 // Before: app/layout.tsx
-import { configure } from 'quzz';
+import { configure } from "quzz";
 
 configure({
   logLevel: "info",
@@ -712,7 +742,7 @@ configure({
   // ... rest of config
 });
 
-// After: quzz.config.mjs (in project root)
+// After: quzz.config.ts (in project root)
 export default {
   logLevel: "info",
   outputFormat: "compact", // Try the new compact format!
@@ -729,7 +759,7 @@ Your existing `configure()` calls still work perfectly:
 
 ```typescript
 // This still works exactly as before
-import { configure } from 'quzz';
+import { configure } from "quzz";
 
 configure({
   logLevel: "info",
@@ -754,11 +784,11 @@ The v0.3.0 release is backward compatible. Existing code continues to work, and 
 
 ```typescript
 // Old code still works
-import { withRSCTrace, configure } from 'quzz';
+import { withRSCTrace, configure } from "quzz";
 
 // New features are additive
-import { ContextManager } from 'quzz/storage';
-import { getContextSnapshots } from 'quzz';
+import { ContextManager } from "quzz/storage";
+import { getContextSnapshots } from "quzz";
 ```
 
 ### Adopting v0.3.0 Features

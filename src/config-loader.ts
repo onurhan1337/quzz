@@ -1,16 +1,80 @@
+import { existsSync, readFileSync, statSync, realpathSync } from "fs";
+import { resolve, join, extname } from "path";
 import { pathToFileURL } from "url";
-import { existsSync } from "fs";
-import { resolve, join } from "path";
 import type { QuzzConfig } from "./types";
 
-const CONFIG_FILES = [
-  "quzz.config.ts",
-  "quzz.config.mts",
-  "quzz.config.cts",
-  "quzz.config.mjs",
-  "quzz.config.js",
-  "quzz.config.cjs",
-] as const;
+const CONFIG_FILES = ["quzz.config.ts", "quzz.config.js"] as const;
+type ConfigFileExtension = ".ts" | ".js";
+
+const CONFIG_LOADERS = {
+  ".ts": loadTranspiledTsConfig,
+  ".js": loadEsmJsConfig,
+} satisfies Record<
+  ConfigFileExtension,
+  (filePath: string, mtimeMs?: number) => Promise<QuzzConfig | null>
+>;
+
+const configCache = new Map<string, { mtimeMs: number; config: QuzzConfig }>();
+
+const resolveConfigExtension = (
+  filePath: string
+): ConfigFileExtension | null => {
+  const extension = extname(filePath) as ConfigFileExtension;
+  return extension in CONFIG_LOADERS ? extension : null;
+};
+
+const getMtimeMs = (filePath: string): number | null => {
+  try {
+    return statSync(filePath).mtimeMs;
+  } catch {
+    return null;
+  }
+};
+
+async function loadConfigByPath(filePath: string): Promise<QuzzConfig | null> {
+  const extension = resolveConfigExtension(filePath);
+  if (!extension) {
+    console.warn(
+      `[quzz] Unsupported config extension. Use ${CONFIG_FILES.join(" or ")}`
+    );
+    return null;
+  }
+
+  const mtimeMs = getMtimeMs(filePath);
+  const cached = mtimeMs !== null ? configCache.get(filePath) : null;
+
+  if (cached && cached.mtimeMs === mtimeMs) {
+    return cached.config;
+  }
+
+  const config = await CONFIG_LOADERS[extension](
+    filePath,
+    mtimeMs ?? undefined
+  );
+
+  if (config && mtimeMs !== null) {
+    configCache.set(filePath, { mtimeMs, config });
+  }
+
+  return config;
+}
+
+export function loadConfigFromFile(): QuzzConfig | null {
+  console.warn(
+    "[quzz] loadConfigFromFile is deprecated. Use loadConfigFromFileAsync()."
+  );
+  return null;
+}
+
+export async function loadConfigFromFileAsync(): Promise<QuzzConfig | null> {
+  if (typeof process === "undefined") {
+    return null;
+  }
+
+  const projectRoot = getProjectRoot();
+  const configFile = findConfigFile(projectRoot);
+  return configFile ? loadConfigByPath(configFile) : null;
+}
 
 /**
  * Find quzz config file in project root
@@ -30,132 +94,103 @@ function findConfigFile(baseDir: string): string | null {
  * Looks for package.json starting from cwd
  */
 function getProjectRoot(): string {
-  let currentDir = process.cwd();
+  let startDir: string;
+  try {
+    startDir = realpathSync(process.cwd());
+  } catch {
+    console.warn(
+      "[quzz] Warning: realpathSync failed, falling back to process.cwd()."
+    );
+    return process.cwd();
+  }
+  let currentDir = startDir;
   const root = resolve("/");
 
   // Look for package.json up the directory tree
-  while (currentDir !== root) {
+  while (true) {
     const packageJsonPath = join(currentDir, "package.json");
     if (existsSync(packageJsonPath)) {
       return currentDir;
     }
+    if (currentDir === root) {
+      break;
+    }
     currentDir = resolve(currentDir, "..");
   }
 
-  // Fallback to cwd if no package.json found
-  return process.cwd();
+  // Fallback to starting cwd if no package.json found
+  return startDir;
 }
 
-async function loadEsmConfig(filepath: string): Promise<QuzzConfig | null> {
+async function loadTranspiledTsConfig(
+  filePath: string,
+  mtimeMs?: number
+): Promise<QuzzConfig | null> {
+  let transform: typeof import("esbuild").transform;
   try {
-    const cacheBuster = `?t=${Date.now()}`;
-    const fileUrl = pathToFileURL(filepath).href + cacheBuster;
-    const module = await import(fileUrl);
-
-    const config = module.default || module.config;
-
-    if (!config) {
-      console.warn(
-        `[quzz] Config file found at ${filepath} but no default export or config export found`
-      );
-      return null;
-    }
-
-    return config as QuzzConfig;
-  } catch (error) {
-    console.error(`[quzz] Failed to load config file: ${filepath}`, error);
+    ({ transform } = await import("esbuild"));
+  } catch {
+    console.warn(
+      "[quzz] esbuild is required to load quzz.config.ts. Install esbuild."
+    );
     return null;
   }
-}
 
-/**
- * Load CommonJS config file (.js, .cjs)
- */
-function loadCjsConfig(filepath: string): QuzzConfig | null {
   try {
-    // Clear require cache to allow hot reloading
-    delete require.cache[require.resolve(filepath)];
+    const source = readFileSync(filePath, "utf8");
+    const { code } = await transform(source, {
+      loader: "ts",
+      format: "esm",
+      target: "es2020",
+      sourcefile: filePath,
+      sourcemap: "inline",
+    });
 
-    const module = require(filepath);
-
-    // Support both module.exports and exports.default
-    const config = module.default || module.config || module;
+    const dataUrl = `data:text/javascript;base64,${Buffer.from(code).toString(
+      "base64"
+    )}`;
+    const bust = mtimeMs ? `#t=${mtimeMs}` : "";
+    const imported = await import(`${dataUrl}${bust}`);
+    const config = imported.default ?? imported.config ?? imported;
 
     if (!config || typeof config !== "object") {
       console.warn(
-        `[quzz] Config file found at ${filepath} but no valid config exported`
+        `[quzz] Config file found at ${filePath} but no valid config exported`
       );
       return null;
     }
 
     return config as QuzzConfig;
   } catch (error) {
-    console.error(`[quzz] Failed to load config file: ${filepath}`, error);
+    console.warn(
+      `[quzz] Failed to load config from ${filePath}: ${(error as Error).message}`
+    );
     return null;
   }
 }
 
-export function loadConfigFromFile(): QuzzConfig | null {
-  if (typeof process === "undefined" || typeof require === "undefined") {
-    return null;
-  }
-
+async function loadEsmJsConfig(
+  filePath: string,
+  mtimeMs?: number
+): Promise<QuzzConfig | null> {
   try {
-    const projectRoot = getProjectRoot();
-    const configFile = findConfigFile(projectRoot);
+    const fileUrl = pathToFileURL(filePath);
+    const bust = mtimeMs ? `?t=${mtimeMs}` : "";
+    const imported = await import(`${fileUrl.href}${bust}`);
+    const config = imported.default ?? imported.config ?? imported;
 
-    if (!configFile) {
-      return null;
-    }
-
-    const ext = configFile.slice(configFile.lastIndexOf("."));
-
-    if (ext === ".mjs" || ext === ".mts" || ext === ".ts" || ext === ".cts") {
+    if (!config || typeof config !== "object") {
       console.warn(
-        `[quzz] Found ${configFile} but ESM/TypeScript files require async loading.\n` +
-          `Recommendation: Use quzz.config.js or quzz.config.cjs with CommonJS syntax for immediate loading,\n` +
-          `or accept the async behavior. The config will be loaded asynchronously in the background.`
+        `[quzz] Config file found at ${filePath} but no valid config exported`
       );
-
-      loadEsmConfig(configFile).catch((err) => {
-        console.error(`[quzz] Failed to load config asynchronously:`, err);
-      });
-
       return null;
     }
 
-    console.log(`[quzz] Loading config from: ${configFile}`);
-    return loadCjsConfig(configFile);
+    return config as QuzzConfig;
   } catch (error) {
-    console.error("[quzz] Error loading config file:", error);
-    return null;
-  }
-}
-
-export async function loadConfigFromFileAsync(): Promise<QuzzConfig | null> {
-  if (typeof process === "undefined") {
-    return null;
-  }
-
-  try {
-    const projectRoot = getProjectRoot();
-    const configFile = findConfigFile(projectRoot);
-
-    if (!configFile) {
-      return null;
-    }
-
-    console.log(`[quzz] Loading config from: ${configFile}`);
-
-    const ext = configFile.slice(configFile.lastIndexOf("."));
-
-    if (ext === ".mjs" || ext === ".mts" || ext === ".ts" || ext === ".cts") {
-      return await loadEsmConfig(configFile);
-    } else {
-      return loadCjsConfig(configFile);
-    }
-  } catch (error) {
-    console.error("[quzz] Error loading config file:", error);
+    console.warn(
+      `[quzz] Failed to load config from ${filePath}: ${(error as Error).message}`
+    );
     return null;
   }
 }
@@ -168,12 +203,8 @@ export function hasConfigFile(): boolean {
     return false;
   }
 
-  try {
-    const projectRoot = getProjectRoot();
-    return findConfigFile(projectRoot) !== null;
-  } catch {
-    return false;
-  }
+  const projectRoot = getProjectRoot();
+  return findConfigFile(projectRoot) !== null;
 }
 
 /**
@@ -184,10 +215,6 @@ export function getConfigFilePath(): string | null {
     return null;
   }
 
-  try {
-    const projectRoot = getProjectRoot();
-    return findConfigFile(projectRoot);
-  } catch {
-    return null;
-  }
+  const projectRoot = getProjectRoot();
+  return findConfigFile(projectRoot);
 }

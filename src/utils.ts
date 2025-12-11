@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
-import type { SerializedError, PropsConfig } from "./types";
+import { mapStackTrace, type MapStackOptions } from "./utils/stack-mapper";
+import type { SerializedError, PropsConfig, TracePlugin } from "./types";
 
 const DEFAULT_SENSITIVE_KEYS = [
   "password",
@@ -220,6 +221,114 @@ function isPromiseErrorResult(value: unknown): value is PromiseErrorResult {
     "__error" in value &&
     typeof (value as PromiseErrorResult).__error === "string"
   );
+}
+
+/**
+ * Strips function references from props to prevent RCE vulnerabilities.
+ * CVE-2025-55182 mitigation - prevents plugins from accessing executable functions.
+ *
+ * @internal
+ * @param props - Props object to sanitize
+ * @param maxDepth - Maximum recursion depth (default: 3)
+ * @returns Sanitized props with functions removed
+ */
+export function stripFunctionsFromProps(
+  props: Record<string, unknown>,
+  maxDepth: number = 3
+): Record<string, unknown> {
+  if (maxDepth < 0 || !props || typeof props !== "object") {
+    return {};
+  }
+
+  const seen = new WeakSet<object>();
+  const sanitized: Record<string, unknown> = {};
+
+  const stripValue = (value: unknown, currentDepth: number): unknown => {
+    if (currentDepth > maxDepth) {
+      return "[Max Depth Exceeded]";
+    }
+
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    const valueType = typeof value;
+    if (valueType === "function") {
+      return "[Function: removed for security]";
+    }
+
+    if (valueType !== "object") {
+      return value;
+    }
+
+    if (seen.has(value)) {
+      return "[Circular Reference]";
+    }
+    seen.add(value);
+
+    if (Array.isArray(value)) {
+      const length = value.length;
+      const result: unknown[] = new Array(length);
+      for (let i = 0; i < length; i++) {
+        result[i] = stripValue(value[i], currentDepth + 1);
+      }
+      return result;
+    }
+
+    const stripped: Record<string, unknown> = {};
+    const keys = Object.keys(value);
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      stripped[key] = stripValue(
+        (value as Record<string, unknown>)[key],
+        currentDepth + 1
+      );
+    }
+    return stripped;
+  };
+
+  const keys = Object.keys(props);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    sanitized[key] = stripValue(props[key], 0);
+  }
+
+  return sanitized;
+}
+
+/**
+ * Processes props through plugins with security sanitization.
+ * Strips functions before and after each plugin to prevent RCE vulnerabilities.
+ *
+ * @internal
+ * @param props - Props to process
+ * @param plugins - Array of trace plugins
+ * @param maxDepth - Maximum recursion depth for function stripping
+ * @returns Sanitized props after plugin processing
+ */
+export function processPropsWithPlugins(
+  props: Record<string, unknown>,
+  plugins: readonly TracePlugin[] | undefined,
+  maxDepth: number
+): Record<string, unknown> {
+  let processed = stripFunctionsFromProps(props, maxDepth);
+
+  if (!plugins || plugins.length === 0) {
+    return processed;
+  }
+
+  for (let i = 0; i < plugins.length; i++) {
+    const plugin = plugins[i];
+    if (plugin?.onPropsCapture) {
+      const result = plugin.onPropsCapture(processed);
+      processed = stripFunctionsFromProps(
+        result && typeof result === "object" ? result : processed,
+        maxDepth
+      );
+    }
+  }
+
+  return processed;
 }
 
 /**
@@ -520,18 +629,18 @@ interface ErrorWithMetadata extends Error {
   componentStack?: string;
 }
 
-/**
- * Serialize error with all available information and depth control for cause chains
- */
+type SerializeErrorOptions = MapStackOptions;
+
 export function serializeError(
   error: Error,
   maxDepth: number = 3,
-  currentDepth: number = 0
+  currentDepth: number = 0,
+  options?: SerializeErrorOptions
 ): SerializedError {
   const serialized: SerializedError = {
     message: error.message,
     name: error.name,
-    stack: error.stack,
+    stack: mapStackTrace(error.stack, options),
   };
 
   const errorWithMeta = error as ErrorWithMetadata;
@@ -559,7 +668,8 @@ export function serializeError(
       serialized.cause = serializeError(
         error.cause,
         maxDepth,
-        currentDepth + 1
+        currentDepth + 1,
+        options
       );
     } else {
       serialized.cause = String(error.cause);
