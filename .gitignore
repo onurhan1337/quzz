@@ -10,3 +10,4 @@ coverage
 .cursor
 heap-snapshots
 *.heapsnapshot
+rsc-test

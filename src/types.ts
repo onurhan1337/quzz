@@ -352,6 +352,9 @@ export interface QuzzConfig {
    */
   enableHyperlinks?: boolean;
 
+  /**
+   * Trace ID configuration options
+   */
   traceId?: TraceIdConfig;
 }
 
